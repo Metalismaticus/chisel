@@ -296,7 +296,7 @@ export async function textToSchematic({
     const yOffset = Math.floor((finalHeight - croppedHeight) / 2);
     
     for(let y = 0; y < croppedHeight; y++) {
-        for(let x = 0; x < contentWidth; x++) {
+        for(let x = 0; x < croppedWidth; x++) {
             if (croppedPixels[y * croppedWidth + x]) {
                 finalPixels[(y + yOffset) * finalWidth + (x + xOffset)] = true;
             }
@@ -1016,6 +1016,7 @@ case 'column': {
 function grayscale(r: number, g: number, b: number): number {
     return 0.299 * r + 0.587 * g + 0.114 * b;
 }
+
 
 
 
