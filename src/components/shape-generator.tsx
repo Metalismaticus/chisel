@@ -11,6 +11,15 @@ import { useToast } from '@/hooks/use-toast';
 import { shapeToSchematic, type Shape, type SchematicOutput } from '@/lib/schematic-utils';
 import { Slider } from '@/components/ui/slider';
 import { useI18n } from '@/locales/client';
+import { HelpCircle } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 
 export function ShapeGenerator() {
@@ -170,9 +179,25 @@ export function ShapeGenerator() {
   return (
     <div className="grid md:grid-cols-2 gap-6">
       <Card className="bg-card/70 border-primary/20 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle>{t('shapeGenerator.title')}</CardTitle>
-          <CardDescription>{t('shapeGenerator.description')}</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>{t('shapeGenerator.title')}</CardTitle>
+              <CardDescription>{t('shapeGenerator.description')}</CardDescription>
+            </div>
+            <Dialog>
+              <DialogTrigger asChild>
+                 <Button variant="ghost" size="icon"><HelpCircle className="h-6 w-6 text-primary" /></Button>
+              </DialogTrigger>
+               <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t('shapeGenerator.help.title')}</DialogTitle>
+                </DialogHeader>
+                 <div className="prose prose-invert max-w-none text-foreground text-sm">
+                  <p>{t('shapeGenerator.help.p1')}</p>
+                  <p className="text-muted-foreground" dangerouslySetInnerHTML={{ __html: t('shapeGenerator.help.p2') }}></p>
+                </div>
+              </DialogContent>
+            </Dialog>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">

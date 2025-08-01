@@ -8,12 +8,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from "@/hooks/use-toast";
 import { SchematicPreview } from './schematic-preview';
-import { UploadCloud, Loader2 } from 'lucide-react';
+import { UploadCloud, Loader2, HelpCircle } from 'lucide-react';
 import type { SchematicOutput } from '@/lib/schematic-utils';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useI18n } from '@/locales/client';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 type ConversionMode = 'bw' | 'color';
 
@@ -146,9 +154,25 @@ export function ImageConverter() {
   return (
     <div className="grid md:grid-cols-2 gap-6">
       <Card className="bg-card/70 border-primary/20 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle>{t('imageConverter.title')}</CardTitle>
-          <CardDescription>{t('imageConverter.description')}</CardDescription>
+         <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>{t('imageConverter.title')}</CardTitle>
+              <CardDescription>{t('imageConverter.description')}</CardDescription>
+            </div>
+            <Dialog>
+              <DialogTrigger asChild>
+                 <Button variant="ghost" size="icon"><HelpCircle className="h-6 w-6 text-primary" /></Button>
+              </DialogTrigger>
+               <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t('imageConverter.help.title')}</DialogTitle>
+                </DialogHeader>
+                <div className="prose prose-invert max-w-none text-foreground text-sm">
+                  <p>{t('imageConverter.help.p1')}</p>
+                  <p>{t('imageConverter.help.p2')}</p>
+                </div>
+              </DialogContent>
+            </Dialog>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">

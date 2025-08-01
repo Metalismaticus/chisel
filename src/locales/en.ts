@@ -34,6 +34,11 @@ export default {
     },
     thresholdLabel: 'B&W Threshold',
     button: 'Convert to Schematic',
+    help: {
+      title: 'About the Image Converter',
+      p1: 'This is a 2D schematic generator for chiseling and color selection for creating pixel art in the game.',
+      p2: 'Currently, this module requires further development, specifically the creation of a color palette based on available in-game blocks. If you are willing to help create or have already created such a palette, please contact me to further develop this module.',
+    },
     errors: {
       conversionFailed: 'Conversion Error',
       workerError: 'Critical Worker Error',
@@ -64,6 +69,11 @@ export default {
     outlineLabel: 'Add outline',
     outlineGapLabel: 'Outline Gap',
     button: 'Generate Schematic',
+    help: {
+        title: 'About the Text Constructor',
+        p1: 'This is a 2D schematic generator for chiseling. Use preset fonts or upload your own.',
+        p2: 'If you are interested in a ready-made model for the <code class="font-bold text-primary/80">Automatic Chiselling</code> mod, I recommend checking out the <code class="font-bold text-primary/80">VOX GENERATOR</code> section.',
+    },
     errors: {
       noText: 'Text is empty',
       noTextDesc: 'Please enter some text to generate a schematic.',
@@ -89,6 +99,11 @@ export default {
       apexOffsetHint: 'Controls the horizontal position of the top point. 0 is center.',
     },
     button: 'Generate Schematic',
+    help: {
+      title: 'About the 2D Shape Generator',
+      p1: 'This is a 2D schematic generator for chiseling, using preset shapes. If you are interested in a ready-made model for the <code class="font-bold text-primary/80">Automatic Chiselling</code> mod, I recommend checking out the <code class="font-bold text-primary/80">VOX GENERATOR</code> section.',
+      p2: 'If you are interested in a ready-made model for the <code class="font-bold text-primary/80">Automatic Chiselling</code> mod, I recommend checking out the <code class="font-bold text-primary/80">VOX GENERATOR</code> section.',
+    },
     errors: {
       invalid: 'Invalid {name}',
       enterValidNumber: 'Please enter a valid number.',
@@ -198,6 +213,12 @@ export default {
         backdropDepth: 'Plate Depth',
     },
     button: 'Generate .vox File',
+    help: {
+      title: 'About the VOX Generator',
+      link: '<a href="https://mods.vintagestory.at/autochisel" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">Automatic Chiselling</a>',
+      p1: 'Everything for the {link} mod! Ready-made templates for shapes, text, and even QR codes to simplify your game.',
+      p2: 'If you wish to contribute to the development, you can submit your own generator for a specific shape. You can find examples on GitHub.',
+    },
     errors: {
       invalid: 'Invalid {name}',
       enterPositiveNumber: 'Please enter a positive number for the {name}.',
@@ -246,9 +267,15 @@ export default {
     step2: {
       title: '2. Configure',
       description: 'Adjust the output parameters for the generated code.',
-      colorMode: 'Color Mode',
+      dithering: 'Dithering (improves gradients)',
+      brightness: 'Brightness',
+      contrast: 'Contrast',
+      posterization: 'Posterization',
       fontSize: 'Font Size (VTML `size` attribute)',
-      maxLineLength: 'Max Line Length',
+      charAspectRatio: 'Character Aspect Ratio',
+      preserveAspectRatio: 'Preserve Aspect Ratio',
+      outputWidth: 'Output Width (characters)',
+      outputHeight: 'Output Height (characters)',
       button: 'Generate',
       buttonUpToDate: 'Up to date',
     },
@@ -256,6 +283,17 @@ export default {
       title: '3. Your VTML Code',
       description: 'The generated VTML code and a live preview.',
       placeholder: 'Your generated code will appear here...',
+    },
+     help: {
+      title: 'VTML Converter Help',
+      intro: 'This tool converts images into text using a special character palette for display in Vintage Story.',
+      main_desc: 'ASCII art for inserting into books, parchments, or signs. Generate, copy, and paste!',
+      palette_title: 'Available Colors',
+      palette_info: 'The palette is currently a work in progress. It is based on VGA/Code Page 437 (CP437) - the original IBM PC (DOS) character set.',
+      example_title: 'Example',
+      example_intro: 'To check the color of a character not in the palette, you can use this test code in the game:',
+      example_code: '<font size="1" family="Lucida Console" align="center">»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»<br>»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»<br>»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»<br>»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»<br>»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»»</font>',
+      palette_footer: 'Then, use a color picker (like in Photoshop) to determine its color, record it, and send it to me. I will be sure to add your edits!',
     },
     errors: {
       invalidFileType: 'Invalid File Type',
@@ -271,3 +309,5 @@ export default {
     },
   },
 } as const;
+
+    

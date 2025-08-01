@@ -34,20 +34,31 @@ const parseVtml = (vtmlCode: string) => {
         contentString = fontContentMatch[1];
     }
     
-    const lines = contentString.split('<br>');
+    // Split by <br> tag, potentially with spaces around it
+    const lines = contentString.split(/<br\s*\/?>/);
 
-    const elements = lines.map((line, lineIndex) => (
-        <div key={lineIndex}>
-            {Array.from(line).map((char, charIndex) => {
-                const color = PREVIEW_COLOR_MAP[char] || '#FFFFFF'; // Default to white
-                return (
-                    <span key={charIndex} style={{ color }}>
-                        {char === ' ' ? '\u00A0' : char}
-                    </span>
-                );
-            })}
-        </div>
-    ));
+    const elements = lines.map((line, lineIndex) => {
+        // If a line is empty, render a non-breaking space to ensure the line height is preserved
+        if (line.trim() === '' && line.length > 0) {
+           return <div key={lineIndex}>{'\u00A0'}</div>
+        }
+        if (line.length === 0) {
+           return <div key={lineIndex}><br/></div>
+        }
+        return (
+            <div key={lineIndex}>
+                {Array.from(line).map((char, charIndex) => {
+                    const color = PREVIEW_COLOR_MAP[char] || '#FFFFFF'; // Default to white
+                    // Use non-breaking space for space characters to ensure they are rendered
+                    return (
+                        <span key={charIndex} style={{ color }}>
+                            {char === ' ' ? '\u00A0' : char}
+                        </span>
+                    );
+                })}
+            </div>
+        );
+    });
     
     return { content: elements, fontSize, fontFamily, align };
 };

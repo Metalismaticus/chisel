@@ -10,9 +10,17 @@ import { Slider } from '@/components/ui/slider';
 import { SchematicPreview } from './schematic-preview';
 import { useToast } from '@/hooks/use-toast';
 import { textToSchematic, type SchematicOutput, type FontStyle } from '@/lib/schematic-utils';
-import { Upload } from 'lucide-react';
+import { Upload, HelpCircle } from 'lucide-react';
 import { useI18n } from '@/locales/client';
 import { Switch } from '@/components/ui/switch';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 export function TextConstructor() {
   const t = useI18n();
@@ -97,9 +105,25 @@ export function TextConstructor() {
   return (
     <div className="grid md:grid-cols-2 gap-6">
       <Card className="bg-card/70 border-primary/20 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle>{t('textConstructor.title')}</CardTitle>
-          <CardDescription>{t('textConstructor.description')}</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>{t('textConstructor.title')}</CardTitle>
+              <CardDescription>{t('textConstructor.description')}</CardDescription>
+            </div>
+            <Dialog>
+              <DialogTrigger asChild>
+                 <Button variant="ghost" size="icon"><HelpCircle className="h-6 w-6 text-primary" /></Button>
+              </DialogTrigger>
+               <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t('textConstructor.help.title')}</DialogTitle>
+                </DialogHeader>
+                <div className="prose prose-invert max-w-none text-foreground text-sm">
+                  <p>{t('textConstructor.help.p1')}</p>
+                  <p className="text-muted-foreground" dangerouslySetInnerHTML={{ __html: t('textConstructor.help.p2') }}></p>
+                </div>
+              </DialogContent>
+            </Dialog>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">

@@ -13,12 +13,21 @@ import { type VoxShape, type SchematicOutput, rasterizeText, type FontStyle, typ
 import { useI18n } from '@/locales/client';
 import { generateVoxFlow, type VoxOutput } from '@/ai/flows/vox-flow';
 import { generateTextToVoxFlow, type TextToVoxInput } from '@/ai/flows/text-to-vox-flow';
-import { Loader2, Upload, QrCode } from 'lucide-react';
+import { Loader2, Upload, QrCode, HelpCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from './ui/switch';
 import { cn } from '@/lib/utils';
 import QRCode from 'qrcode';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import Link from 'next/link';
 
 
 type GeneratorMode = 'shape' | 'text' | 'qr';
@@ -915,9 +924,25 @@ export function VoxGenerator() {
   return (
     <div className="grid md:grid-cols-2 gap-6">
       <Card className="bg-card/70 border-primary/20 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle>{t('voxGenerator.title')}</CardTitle>
-          <CardDescription>{t('voxGenerator.description')}</CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>{t('voxGenerator.title')}</CardTitle>
+            <CardDescription>{t('voxGenerator.description')}</CardDescription>
+          </div>
+           <Dialog>
+              <DialogTrigger asChild>
+                 <Button variant="ghost" size="icon"><HelpCircle className="h-6 w-6 text-primary" /></Button>
+              </DialogTrigger>
+               <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t('voxGenerator.help.title')}</DialogTitle>
+                </DialogHeader>
+                <div className="prose prose-invert max-w-none text-foreground text-sm space-y-4">
+                   <p dangerouslySetInnerHTML={{ __html: t('voxGenerator.help.p1', { link: t('voxGenerator.help.link') })}} />
+                   <p className="text-muted-foreground">{t('voxGenerator.help.p2')}</p>
+                </div>
+              </DialogContent>
+            </Dialog>
         </CardHeader>
         <CardContent className="space-y-6">
             <RadioGroup value={mode} onValueChange={(v) => setMode(v as GeneratorMode)} className="flex pt-2 space-x-4 bg-muted/30 p-1 rounded-lg">
@@ -944,18 +969,18 @@ export function VoxGenerator() {
                             <RadioGroupItem value="cuboid" id="r-cuboid" />
                             <Label htmlFor="r-cuboid">{t('voxGenerator.shapes.cuboid')}</Label>
                         </div>
-                        <div className="flex items-center space-x-2">
+                        {/* <div className="flex items-center space-x-2">
                             <RadioGroupItem value="sphere" id="r-sphere" />
                             <Label htmlFor="r-sphere">{t('voxGenerator.shapes.sphere')}</Label>
-                        </div>
+                        </div> */}
                         <div className="flex items-center space-x-2">
                             <RadioGroupItem value="pyramid" id="r-pyramid" />
                             <Label htmlFor="r-pyramid">{t('voxGenerator.shapes.pyramid')}</Label>
                         </div>
-                        <div className="flex items-center space-x-2">
+                        {/* <div className="flex items-center space-x-2">
                             <RadioGroupItem value="column" id="r-column" />
                             <Label htmlFor="r-column">{t('voxGenerator.shapes.column')}</Label>
-                        </div>
+                        </div> */}
                         <div className="flex items-center space-x-2">
                             <RadioGroupItem value="cone" id="r-cone" />
                             <Label htmlFor="r-cone">{t('voxGenerator.shapes.cone')}</Label>
