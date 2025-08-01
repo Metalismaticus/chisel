@@ -119,6 +119,7 @@ export default {
       shape: 'Shape',
       text: 'Text',
       qr: 'QR Code',
+      pixelart: 'PixelArt',
     },
     shapeLabel: '3D Shape',
     shapes: {
@@ -204,6 +205,10 @@ export default {
             horizontal: 'Horizontal',
             vertical: 'Vertical',
         },
+    },
+    pixelart: {
+        invert: 'Invert Colors',
+        drawingDepth: 'Drawing Depth',
     },
     qr: {
         urlLabel: 'URL or Text for QR Code',

@@ -119,6 +119,7 @@ export default {
       shape: 'Фигура',
       text: 'Текст',
       qr: 'QR-код',
+      pixelart: 'Пиксель-арт',
     },
     shapeLabel: '3D Фигура',
     shapes: {
@@ -204,6 +205,10 @@ export default {
             horizontal: 'Горизонтально',
             vertical: 'Вертикально',
         },
+    },
+    pixelart: {
+        invert: 'Инвертировать цвета',
+        drawingDepth: 'Глубина рисунка',
     },
     qr: {
         urlLabel: 'URL или текст для QR-кода',

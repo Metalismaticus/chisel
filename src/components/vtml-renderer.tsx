@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo } from 'react';
@@ -48,7 +49,7 @@ const parseVtml = (vtmlCode: string) => {
         return (
             <div key={lineIndex}>
                 {Array.from(line).map((char, charIndex) => {
-                    const color = PREVIEW_COLOR_MAP[char] || '#FFFFFF'; // Default to white
+                    const color = char === '·' ? 'transparent' : PREVIEW_COLOR_MAP[char] || '#FFFFFF'; // Default to white
                     // Use non-breaking space for space characters to ensure they are rendered
                     return (
                         <span key={charIndex} style={{ color }}>

@@ -1,7 +1,8 @@
 
 'use client';
 
-import { useState, useTransition, useEffect, useRef } from 'react';
+import { useState, useTransition, useEffect, useRef, useCallback, DragEvent } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,11 +10,12 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { SchematicPreview } from './schematic-preview';
 import { useToast } from '@/hooks/use-toast';
-import { type VoxShape, type SchematicOutput, rasterizeText, type FontStyle, type TextOrientation } from '@/lib/schematic-utils';
+import { type VoxShape, type SchematicOutput, rasterizeText, type FontStyle, type TextOrientation, imageToSchematic } from '@/lib/schematic-utils';
 import { useI18n } from '@/locales/client';
 import { generateVoxFlow, type VoxOutput } from '@/ai/flows/vox-flow';
 import { generateTextToVoxFlow, type TextToVoxInput } from '@/ai/flows/text-to-vox-flow';
-import { Loader2, Upload, QrCode, HelpCircle } from 'lucide-react';
+import { generatePixelArtToVoxFlow, type PixelArtToVoxInput } from '@/ai/flows/pixelart-to-vox-flow';
+import { Loader2, Upload, QrCode, HelpCircle, UploadCloud, X, RefreshCw } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from './ui/switch';
@@ -30,8 +32,9 @@ import {
 import Link from 'next/link';
 
 
-type GeneratorMode = 'shape' | 'text' | 'qr';
+type GeneratorMode = 'shape' | 'text' | 'qr' | 'pixelart';
 type TextVoxMode = 'extrude' | 'engrave';
+type PixelArtVoxMode = 'extrude' | 'engrave';
 
 export function VoxGenerator() {
   const t = useI18n();
@@ -69,7 +72,7 @@ export function VoxGenerator() {
   const [hemisphereDirection, setHemisphereDirection] = useState<'top' | 'bottom' | 'vertical'>('top');
   const [diskPart, setDiskPart] = useState<'full' | 'half'>('full');
   const [diskOrientation, setDiskOrientation] = useState<'horizontal' | 'vertical'>('horizontal');
-    const [ringPart, setRingPart] = useState<'full' | 'half'>('full');
+  const [ringPart, setRingPart] = useState<'full' | 'half'>('full');
   const [ringOrientation, setRingOrientation] = useState<'horizontal' | 'vertical'>('horizontal');
   const [archType, setArchType] = useState<'rectangular' | 'rounded' | 'circular'>('rectangular');
   const [circularArchOrientation, setCircularArchOrientation] = useState<'top' | 'bottom'>('top');
@@ -97,6 +100,23 @@ export function VoxGenerator() {
   const [backdropDepth, setBackdropDepth] = useState([4]);
   const [qrPreview, setQrPreview] = useState<string | null>(null);
 
+  // PixelArt State
+  const [paFile, setPaFile] = useState<File | null>(null);
+  const [paPreviewUrl, setPaPreviewUrl] = useState<string | null>(null);
+  const [paThreshold, setPaThreshold] = useState([128]);
+  const [paOutputWidth, setPaOutputWidth] = useState('64');
+  const [paInvert, setPaInvert] = useState(false);
+  const [paVoxMode, setPaVoxMode] = useState<PixelArtVoxMode>('extrude');
+  const [paExtrudeDepth, setPaExtrudeDepth] = useState([5]);
+  const [paStickerMode, setPaStickerMode] = useState(true);
+  const [paEngraveBgDepth, setPaEngraveBgDepth] = useState([16]);
+  const [paEngraveDepth, setPaEngraveDepth] = useState([3]);
+  const [isDragging, setIsDragging] = useState(false);
+  const paFileInputRef = useRef<HTMLInputElement>(null);
+  const paWorkerRef = useRef<Worker>();
+  const [paOrientation, setPaOrientation] = useState<TextOrientation>('horizontal');
+
+
   const [schematicOutput, setSchematicOutput] = useState<any | null>(null);
   const [isPending, setIsPending] = useState(false);
   const { toast } = useToast();
@@ -115,8 +135,11 @@ export function VoxGenerator() {
       if (fontFileUrlRef.current) {
         URL.revokeObjectURL(fontFileUrlRef.current);
       }
+      if (paPreviewUrl) {
+          URL.revokeObjectURL(paPreviewUrl);
+      }
     };
-  }, []);
+  }, [paPreviewUrl]);
   
     // Generate QR preview when URL changes
   useEffect(() => {
@@ -130,6 +153,24 @@ export function VoxGenerator() {
       });
     }
   }, [qrUrl, mode]);
+
+  useEffect(() => {
+    paWorkerRef.current = new Worker(new URL('../lib/image.worker.ts', import.meta.url));
+    
+    paWorkerRef.current.onerror = (error) => {
+       toast({
+         title: t('imageConverter.errors.workerError'),
+         description: t('imageConverter.errors.workerErrorDesc'),
+         variant: "destructive",
+       });
+       setSchematicOutput(null);
+       setIsPending(false);
+    }
+
+    return () => {
+      paWorkerRef.current?.terminate();
+    };
+  }, [toast, t]);
 
   const handleFontFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -415,14 +456,120 @@ export function VoxGenerator() {
       setIsPending(false);
     }
   };
+
+  const handleGeneratePixelArt = async () => {
+    if (!paFile) {
+        toast({ title: t('imageConverter.errors.noImage'), description: t('imageConverter.errors.noImageDesc'), variant: "destructive" });
+        return;
+    }
+    const width = validateAndParse(paOutputWidth, t('imageConverter.widthLabel'));
+    if (width === null) return;
+    
+    setIsPending(true);
+    setSchematicOutput(null);
+
+    paWorkerRef.current!.onmessage = async (event: MessageEvent<SchematicOutput | { error: string }>) => {
+        if ('error' in event.data) {
+            toast({
+                title: t('imageConverter.errors.conversionFailed'),
+                description: event.data.error,
+                variant: "destructive",
+            });
+            setSchematicOutput(null);
+            setIsPending(false);
+        } else {
+            let pixelData = event.data.pixels;
+            if (paInvert) {
+                pixelData = pixelData.map(p => !p);
+            }
+            
+            const input: PixelArtToVoxInput = {
+                pixels: pixelData as boolean[],
+                width: event.data.width,
+                height: event.data.height,
+                mode: paVoxMode,
+                extrudeDepth: paExtrudeDepth[0],
+                engraveBackgroundDepth: paEngraveBgDepth[0],
+                engraveDepth: paEngraveDepth[0],
+                stickerMode: paStickerMode,
+                orientation: paOrientation,
+            };
+
+            try {
+              const result = await generatePixelArtToVoxFlow(input);
+              const voxDataBytes = Buffer.from(result.voxData, 'base64');
+              setSchematicOutput({ ...result, voxData: voxDataBytes });
+            } catch (flowError) {
+               toast({
+                title: t('common.errors.generationFailed'),
+                description: (flowError instanceof Error) ? flowError.message : t('common.errors.serverError'),
+                variant: "destructive",
+              });
+              setSchematicOutput(null);
+            } finally {
+              setIsPending(false);
+            }
+        }
+    };
+    
+    paWorkerRef.current?.postMessage({ file: paFile, threshold: paThreshold[0], outputWidth: width, mode: 'bw' });
+  }
   
   const handleGenerate = () => {
     if (mode === 'shape') {
         handleGenerateShape();
     } else if (mode === 'text') {
         handleGenerateText();
+    } else if (mode === 'pixelart') {
+        handleGeneratePixelArt();
     } else {
         handleGenerateQr();
+    }
+  }
+
+  const handlePaFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    processPaFile(event.target.files?.[0]);
+  };
+
+  const handlePaDragOver = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handlePaDragLeave = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handlePaDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragging(false);
+    processPaFile(event.dataTransfer.files?.[0]);
+  };
+  
+   const processPaFile = (selectedFile: File | undefined) => {
+    if (selectedFile) {
+      if (!selectedFile.type.startsWith('image/')) {
+        toast({
+          title: t('imageConverter.errors.invalidFileType'),
+          description: t('imageConverter.errors.invalidFileTypeDesc'),
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setPaFile(selectedFile);
+      setSchematicOutput(null);
+      
+      if (paPreviewUrl) {
+          URL.revokeObjectURL(paPreviewUrl);
+      }
+      
+      const newPreviewUrl = URL.createObjectURL(selectedFile);
+      setPaPreviewUrl(newPreviewUrl);
     }
   }
 
@@ -921,6 +1068,162 @@ export function VoxGenerator() {
     );
   }
 
+  const renderPixelArtInputs = () => {
+    return (
+        <div className="space-y-6">
+            <div className="space-y-2">
+                <Label htmlFor="image-upload">{t('imageConverter.uploadLabel')}</Label>
+                <div 
+                  className={cn(
+                    "mt-2 flex justify-center rounded-lg border border-dashed border-input px-6 py-10 cursor-pointer hover:border-primary transition-colors",
+                     isDragging && "border-primary bg-primary/10"
+                  )}
+                  onClick={() => paFileInputRef.current?.click()}
+                  onDragOver={handlePaDragOver}
+                  onDragLeave={handlePaDragLeave}
+                  onDrop={handlePaDrop}
+                >
+                  <div className="text-center">
+                    {paPreviewUrl ? (
+                      <Image
+                        src={paPreviewUrl}
+                        alt={t('imageConverter.previewAlt')}
+                        width={200}
+                        height={200}
+                        className="mx-auto h-32 w-auto rounded-md object-contain"
+                      />
+                    ) : (
+                      <>
+                        <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" />
+                        <div className="mt-4 flex text-sm leading-6 text-muted-foreground">
+                          <p className="pl-1">{t('imageConverter.dropzone')}</p>
+                        </div>
+                        <p className="text-xs leading-5 text-muted-foreground">{t('imageConverter.dropzoneHint')}</p>
+                      </>
+                    )}
+                    <Input
+                      ref={paFileInputRef}
+                      id="pa-image-upload"
+                      type="file"
+                      className="sr-only"
+                      onChange={handlePaFileChange}
+                      accept="image/png, image/jpeg, image/gif"
+                    />
+                  </div>
+                </div>
+            </div>
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <Label htmlFor="paOutputWidth">{t('imageConverter.widthLabel')}</Label>
+                    <Input 
+                    id="paOutputWidth"
+                    type="number"
+                    value={paOutputWidth}
+                    onChange={(e) => setPaOutputWidth(e.target.value)}
+                    placeholder="e.g., 64"
+                    />
+                </div>
+                <div className="flex items-center space-x-2 self-end pb-2">
+                  <Switch id="pa-invert" checked={paInvert} onCheckedChange={setPaInvert} />
+                  <Label htmlFor="pa-invert">{t('voxGenerator.pixelart.invert')}</Label>
+                </div>
+             </div>
+             <div className="space-y-2">
+              <Label htmlFor="pa-threshold">{t('imageConverter.thresholdLabel')}: {paThreshold[0]}</Label>
+              <Slider
+                id="pa-threshold"
+                min={0}
+                max={255}
+                step={1}
+                value={paThreshold}
+                onValueChange={setPaThreshold}
+              />
+            </div>
+
+            <div className="space-y-2">
+                <Label>{t('voxGenerator.text.orientation.label')}</Label>
+                <RadioGroup value={paOrientation} onValueChange={(v) => setPaOrientation(v as TextOrientation)} className="flex pt-2 space-x-4 bg-muted/30 p-1 rounded-lg">
+                    <RadioGroupItem value="horizontal" id="pa-horizontal" className="sr-only" />
+                    <Label 
+                        htmlFor="pa-horizontal"
+                        className={cn(
+                            "flex-1 text-center py-2 px-4 rounded-md cursor-pointer",
+                            paOrientation === 'horizontal' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent/50'
+                        )}
+                    >
+                        {t('voxGenerator.text.orientation.horizontal')}
+                    </Label>
+                    <RadioGroupItem value="vertical-lr" id="pa-vertical" className="sr-only" />
+                    <Label 
+                        htmlFor="pa-vertical"
+                        className={cn(
+                            "flex-1 text-center py-2 px-4 rounded-md cursor-pointer",
+                            paOrientation === 'vertical-lr' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent/50'
+                        )}
+                    >
+                        {t('voxGenerator.text.orientation.vertical')}
+                    </Label>
+                </RadioGroup>
+            </div>
+            
+            <div className="space-y-2">
+             <Label>{t('voxGenerator.text.modeLabel')}</Label>
+             <RadioGroup value={paVoxMode} onValueChange={(v) => setPaVoxMode(v as PixelArtVoxMode)} className="flex pt-2 space-x-4">
+                <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="extrude" id="pa-mode-extrude" />
+                    <Label htmlFor="pa-mode-extrude">{t('voxGenerator.text.modes.extrude')}</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="engrave" id="pa-mode-engrave" />
+                    <Label htmlFor="pa-mode-engrave">{t('voxGenerator.text.modes.engrave')}</Label>
+                </div>
+            </RadioGroup>
+          </div>
+          
+           <div className="flex items-center space-x-2">
+                <Switch id="pa-sticker-mode" checked={paStickerMode} onCheckedChange={setPaStickerMode} />
+                <Label htmlFor="pa-sticker-mode">{t('voxGenerator.text.stickerMode')}</Label>
+           </div>
+           
+            {paVoxMode === 'extrude' && (
+              <div className="space-y-2">
+                  <Label htmlFor="pa-extrude-depth">{t('voxGenerator.pixelart.drawingDepth')}: {paExtrudeDepth[0]}px</Label>
+                  <Slider
+                      id="pa-extrude-depth"
+                      min={1} max={50} step={1}
+                      value={paExtrudeDepth}
+                      onValueChange={setPaExtrudeDepth}
+                  />
+              </div>
+            )}
+
+           {paVoxMode === 'engrave' && (
+            <div className="space-y-4">
+                 <div className="space-y-2">
+                    <Label htmlFor="pa-background-depth">{t('voxGenerator.text.backgroundDepth')}: {paEngraveBgDepth[0]}px</Label>
+                    <Slider
+                        id="pa-background-depth"
+                        min={1} max={50} step={1}
+                        value={paEngraveBgDepth}
+                        onValueChange={setPaEngraveBgDepth}
+                    />
+                </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="pa-engrave-depth">{t('voxGenerator.text.engraveDepth')}: {paEngraveDepth[0]}px</Label>
+                    <Slider
+                        id="pa-engrave-depth"
+                        min={1} max={paEngraveBgDepth[0]} step={1}
+                        value={paEngraveDepth}
+                        onValueChange={setPaEngraveDepth}
+                    />
+                </div>
+            </div>
+          )}
+
+        </div>
+    );
+  }
+
   return (
     <div className="grid md:grid-cols-2 gap-6">
       <Card className="bg-card/70 border-primary/20 backdrop-blur-sm">
@@ -945,7 +1248,7 @@ export function VoxGenerator() {
             </Dialog>
         </CardHeader>
         <CardContent className="space-y-6">
-            <RadioGroup value={mode} onValueChange={(v) => setMode(v as GeneratorMode)} className="flex pt-2 space-x-4 bg-muted/30 p-1 rounded-lg">
+            <RadioGroup value={mode} onValueChange={(v) => setMode(v as GeneratorMode)} className="grid grid-cols-2 lg:grid-cols-4 gap-1 pt-2 bg-muted/30 p-1 rounded-lg">
                 <RadioGroupItem value="shape" id="mode-shape" className="sr-only" />
                 <Label htmlFor="mode-shape" className={cn("flex-1 text-center py-2 px-4 rounded-md cursor-pointer", mode === 'shape' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent/50')}>
                    {t('voxGenerator.modes.shape')}
@@ -953,6 +1256,10 @@ export function VoxGenerator() {
                 <RadioGroupItem value="text" id="mode-text" className="sr-only" />
                 <Label htmlFor="mode-text" className={cn("flex-1 text-center py-2 px-4 rounded-md cursor-pointer", mode === 'text' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent/50')}>
                     {t('voxGenerator.modes.text')}
+                </Label>
+                <RadioGroupItem value="pixelart" id="mode-pixelart" className="sr-only" />
+                <Label htmlFor="mode-pixelart" className={cn("flex-1 text-center py-2 px-4 rounded-md cursor-pointer", mode === 'pixelart' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent/50')}>
+                    {t('voxGenerator.modes.pixelart')}
                 </Label>
                  <RadioGroupItem value="qr" id="mode-qr" className="sr-only" />
                 <Label htmlFor="mode-qr" className={cn("flex-1 text-center py-2 px-4 rounded-md cursor-pointer", mode === 'qr' ? 'bg-primary text-primary-foreground' : 'hover:bg-accent/50')}>
@@ -1003,6 +1310,8 @@ export function VoxGenerator() {
                 </div>
             ) : mode === 'text' ? (
                 renderTextInputs()
+            ) : mode === 'pixelart' ? (
+                renderPixelArtInputs()
             ) : (
                 renderQrInputs()
             )}
