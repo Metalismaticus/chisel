@@ -33,6 +33,7 @@ export interface PixelArtToVoxOutput {
   depth: number;
   isVox: boolean;
   voxData: string; // Base64 encoded string
+  voxSize: {x: number, y: number, z: number};
 }
 
 function createSchematicData(name: string, dimensions: {width: number, height: number, depth?: number}): string {
@@ -148,5 +149,6 @@ export async function generatePixelArtToVoxFlow(input: PixelArtToVoxInput): Prom
       depth: finalDepth,
       isVox: true,
       voxData: voxDataB64,
+      voxSize: voxSize
   };
 }

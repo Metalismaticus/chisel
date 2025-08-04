@@ -13,9 +13,9 @@ import { useToast } from '@/hooks/use-toast';
 import { type VoxShape, type SchematicOutput, rasterizeText, type FontStyle, type TextOrientation, imageToSchematic } from '@/lib/schematic-utils';
 import { useI18n } from '@/locales/client';
 import { generateVoxFlow, type VoxOutput } from '@/ai/flows/vox-flow';
-import { generateTextToVoxFlow, type TextToVoxInput } from '@/ai/flows/text-to-vox-flow';
-import { generatePixelArtToVoxFlow, type PixelArtToVoxInput } from '@/ai/flows/pixelart-to-vox-flow';
-import { Loader2, Upload, QrCode, HelpCircle, UploadCloud, X, RefreshCw } from 'lucide-react';
+import { generateTextToVoxFlow, type TextToVoxInput, type TextToVoxOutput } from '@/ai/flows/text-to-vox-flow';
+import { generatePixelArtToVoxFlow, type PixelArtToVoxInput, type PixelArtToVoxOutput } from '@/ai/flows/pixelart-to-vox-flow';
+import { Loader2, Upload, QrCode, HelpCircle, UploadCloud, X, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from './ui/switch';
@@ -29,19 +29,22 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Link from 'next/link';
 
 
 type GeneratorMode = 'shape' | 'text' | 'qr' | 'pixelart';
 type TextVoxMode = 'extrude' | 'engrave';
 type PixelArtVoxMode = 'extrude' | 'engrave';
+type ColumnPlacement = 'center' | 'corner';
+export type ColumnStyle = 'simple' | 'decorative';
 
 export function VoxGenerator() {
   const t = useI18n();
   const [mode, setMode] = useState<GeneratorMode>('shape');
   
   // Shape state
-  const [shape, setShape] = useState<VoxShape['type']>('cuboid');
+  const [shape, setShape] = useState<VoxShape['type']>('column');
   const [dimensions, setDimensions] = useState({ 
     width: '16', 
     height: '16', 
@@ -52,10 +55,9 @@ export function VoxGenerator() {
     coneRadius: '16',
     coneHeight: '16',
     columnRadius: '8',
-    columnHeight: '16',
+    columnHeight: '64',
     baseRadius: '10',
     baseHeight: '4',
-    breakAngle: '45',
     archWidth: '16',
     archHeight: '16',
     archDepth: '8',
@@ -67,6 +69,7 @@ export function VoxGenerator() {
     ringRadius: '16',
     ringThickness: '4',
     ringHeight: '4',
+    debrisLength: '16',
   });
   const [spherePart, setSpherePart] = useState<'full' | 'hemisphere'>('full');
   const [hemisphereDirection, setHemisphereDirection] = useState<'top' | 'bottom' | 'vertical'>('top');
@@ -79,6 +82,13 @@ export function VoxGenerator() {
   const [withBase, setWithBase] = useState(false);
   const [withCapital, setWithCapital] = useState(false);
   const [brokenTop, setBrokenTop] = useState(false);
+  const [showCrashWarning, setShowCrashWarning] = useState(false);
+  const [baseStyle, setBaseStyle] = useState<ColumnStyle>('simple');
+  const [capitalStyle, setCapitalStyle] = useState<ColumnStyle>('simple');
+  const [withDebris, setWithDebris] = useState(false);
+  const [breakAngleX, setBreakAngleX] = useState(20);
+  const [breakAngleZ, setBreakAngleZ] = useState(-15);
+
 
   // Text state
   const [text, setText] = useState('Vintage');
@@ -120,6 +130,25 @@ export function VoxGenerator() {
   const [schematicOutput, setSchematicOutput] = useState<any | null>(null);
   const [isPending, setIsPending] = useState(false);
   const { toast } = useToast();
+
+  const checkForCrashRisk = useCallback(() => {
+    let isRisky = false;
+    if (shape === 'column') {
+        const colR = parseInt(dimensions.columnRadius, 10);
+        const baseR = parseInt(dimensions.baseRadius, 10);
+        isRisky = (colR > 0 && colR % 8 === 0) || ((withBase || withCapital) && baseR > 0 && baseR % 8 === 0);
+    } else if (shape === 'sphere') {
+        const sphereR = parseInt(dimensions.radius, 10);
+        // Diameter is radius * 2. Risky if diameter is multiple of 8.
+        isRisky = sphereR > 0 && (sphereR * 2) % 8 === 0;
+    }
+    setShowCrashWarning(isRisky);
+  }, [shape, dimensions.columnRadius, dimensions.baseRadius, dimensions.radius, withBase, withCapital]);
+
+  useEffect(() => {
+    checkForCrashRisk();
+  }, [checkForCrashRisk]);
+
 
   // Common logic
   const handleDimensionChange = (field: keyof typeof dimensions, value: string) => {
@@ -241,9 +270,9 @@ export function VoxGenerator() {
             stickerMode: textStickerMode,
         };
 
-        const result = await generateTextToVoxFlow(input);
+        const result: TextToVoxOutput = await generateTextToVoxFlow(input);
         const voxDataBytes = Buffer.from(result.voxData, 'base64');
-        setSchematicOutput({ ...result, voxData: voxDataBytes });
+        setSchematicOutput({ ...result, voxData: voxDataBytes, voxSize: result.voxSize });
 
     } catch (error) {
         console.error(error);
@@ -295,7 +324,7 @@ export function VoxGenerator() {
 
       const result = await generateVoxFlow(shapeParams);
       const voxDataBytes = Buffer.from(result.voxData, 'base64');
-      setSchematicOutput({ ...result, voxData: voxDataBytes });
+      setSchematicOutput({ ...result, voxData: voxDataBytes, voxSize: (result as any).voxSize });
 
     } catch (error) {
        console.error(error);
@@ -353,11 +382,11 @@ export function VoxGenerator() {
                 toast({ title: t('voxGenerator.errors.invalid', { name: t('voxGenerator.column.baseRadius')}), description: t('voxGenerator.errors.baseRadiusTooSmall'), variant: "destructive" });
                 return;
            }
+            const debrisLen = withDebris && brokenTop ? validateAndParse(dimensions.debrisLength, t('voxGenerator.column.debrisLength')) : 0;
+            if (withDebris && brokenTop && debrisLen === null) return;
 
-           const breakAngle = brokenTop ? validateAndParse(dimensions.breakAngle, t('voxGenerator.column.breakAngle')) : undefined;
-           if(brokenTop && breakAngle === null) return;
 
-           shapeParams = { type: 'column', radius, height, withBase, withCapital, baseRadius, baseHeight, brokenTop, breakAngle };
+           shapeParams = { type: 'column', radius, height, withBase, withCapital, baseRadius, baseHeight, baseStyle, capitalStyle, brokenTop, withDebris, debrisLength: debrisLen, breakAngleX, breakAngleZ };
           break;
         }
         case 'cone': {
@@ -442,7 +471,7 @@ export function VoxGenerator() {
     try {
       const result: VoxOutput = await generateVoxFlow(shapeParams);
       const voxDataBytes = Buffer.from(result.voxData, 'base64');
-      setSchematicOutput({ ...result, voxData: voxDataBytes });
+      setSchematicOutput({ ...result, voxData: voxDataBytes, voxSize: result.voxSize });
 
     } catch (error) {
        console.error(error);
@@ -496,9 +525,9 @@ export function VoxGenerator() {
             };
 
             try {
-              const result = await generatePixelArtToVoxFlow(input);
+              const result: PixelArtToVoxOutput = await generatePixelArtToVoxFlow(input);
               const voxDataBytes = Buffer.from(result.voxData, 'base64');
-              setSchematicOutput({ ...result, voxData: voxDataBytes });
+              setSchematicOutput({ ...result, voxData: voxDataBytes, voxSize: (result as any).voxSize });
             } catch (flowError) {
                toast({
                 title: t('common.errors.generationFailed'),
@@ -574,327 +603,371 @@ export function VoxGenerator() {
   }
 
   const renderShapeInputs = () => {
-    switch(shape) {
-      case 'cuboid':
-        return (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="width">{t('voxGenerator.dims.width')} (voxels)</Label>
-              <Input id="width" type="number" value={dimensions.width} onChange={e => handleDimensionChange('width', e.target.value)} placeholder="e.g. 16" />
-            </div>
-             <div className="space-y-2">
-              <Label htmlFor="height">{t('voxGenerator.dims.height')} (voxels)</Label>
-              <Input id="height" type="number" value={dimensions.height} onChange={e => handleDimensionChange('height', e.target.value)} placeholder="e.g. 16" />
-            </div>
-             <div className="space-y-2">
-              <Label htmlFor="depth">{t('voxGenerator.dims.depth')} (voxels)</Label>
-              <Input id="depth" type="number" value={dimensions.depth} onChange={e => handleDimensionChange('depth', e.target.value)} placeholder="e.g. 16" />
-            </div>
-          </div>
-        );
-      case 'sphere':
-        return (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="radius">{t('voxGenerator.dims.radius')} (voxels)</Label>
-              <Input id="radius" type="number" value={dimensions.radius} onChange={e => handleDimensionChange('radius', e.target.value)} placeholder="e.g. 16" />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{t('voxGenerator.sphere.type')}</Label>
-                 <RadioGroup value={spherePart} onValueChange={(v) => setSpherePart(v as any)} className="flex pt-2 space-x-4">
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="full" id="sphere-full" />
-                        <Label htmlFor="sphere-full">{t('voxGenerator.sphere.types.full')}</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="hemisphere" id="sphere-hemi" />
-                        <Label htmlFor="sphere-hemi">{t('voxGenerator.sphere.types.hemisphere')}</Label>
-                    </div>
-                </RadioGroup>
-              </div>
-              {spherePart === 'hemisphere' && (
-                <div className="space-y-2">
-                    <Label htmlFor="hemisphere-direction">{t('voxGenerator.sphere.orientation')}</Label>
-                    <Select value={hemisphereDirection} onValueChange={(v) => setHemisphereDirection(v as any)}>
-                        <SelectTrigger id="hemisphere-direction">
-                            <SelectValue placeholder={t('voxGenerator.sphere.selectDirection')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="top">{t('voxGenerator.sphere.orientations.top')}</SelectItem>
-                            <SelectItem value="bottom">{t('voxGenerator.sphere.orientations.bottom')}</SelectItem>
-                            <SelectItem value="vertical">{t('voxGenerator.sphere.orientations.vertical')}</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      case 'pyramid':
-        return (
-           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="pyramidBase">{t('voxGenerator.dims.baseSize')} (voxels)</Label>
-              <Input id="pyramidBase" type="number" value={dimensions.pyramidBase} onChange={e => handleDimensionChange('pyramidBase', e.target.value)} placeholder="e.g. 16" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="pyramidHeight">{t('voxGenerator.dims.height')} (voxels)</Label>
-              <Input id="pyramidHeight" type="number" value={dimensions.pyramidHeight} onChange={e => handleDimensionChange('pyramidHeight', e.target.value)} placeholder="e.g. 16" />
-            </div>
-          </div>
-        );
-      case 'column':
-        return (
-           <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="columnRadius">{t('voxGenerator.dims.radius')} (voxels)</Label>
-                <Input id="columnRadius" type="number" value={dimensions.columnRadius} onChange={e => handleDimensionChange('columnRadius', e.target.value)} placeholder="e.g. 8" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="columnHeight">{t('voxGenerator.dims.height')} (voxels)</Label>
-                <Input id="columnHeight" type="number" value={dimensions.columnHeight} onChange={e => handleDimensionChange('columnHeight', e.target.value)} placeholder="e.g. 16" />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
-               <div className="space-y-2">
-                    <div className="flex items-center space-x-2 pt-2">
-                        <Switch id="with-base" checked={withBase} onCheckedChange={setWithBase} />
-                        <Label htmlFor="with-base">{t('voxGenerator.column.withBase')}</Label>
-                    </div>
-                     <div className="flex items-center space-x-2 pt-2">
-                        <Switch id="with-capital" checked={withCapital} onCheckedChange={(checked) => { setWithCapital(checked); if (checked) setBrokenTop(false); }} disabled={brokenTop} />
-                        <Label htmlFor="with-capital" className={cn(brokenTop && "text-muted-foreground")}>{t('voxGenerator.column.withCapital')}</Label>
-                    </div>
-                    {(withBase || withCapital) && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 pl-1">
-                            <div className="space-y-2">
-                                <Label htmlFor="baseRadius">{t('voxGenerator.column.baseRadius')}</Label>
-                                <Input id="baseRadius" type="number" value={dimensions.baseRadius} onChange={e => handleDimensionChange('baseRadius', e.target.value)} placeholder="e.g. 10" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="baseHeight">{t('voxGenerator.column.baseHeight')}</Label>
-                                <Input id="baseHeight" type="number" value={dimensions.baseHeight} onChange={e => handleDimensionChange('baseHeight', e.target.value)} placeholder="e.g. 4" />
-                            </div>
-                        </div>
-                    )}
-               </div>
-                <div className="space-y-2">
-                    <div className="flex items-center space-x-2 pt-2">
-                        <Switch id="broken-top" checked={brokenTop} onCheckedChange={(checked) => { setBrokenTop(checked); if (checked) setWithCapital(false); }} disabled={withCapital}/>
-                        <Label htmlFor="broken-top" className={cn(withCapital && "text-muted-foreground")}>{t('voxGenerator.column.brokenTop')}</Label>
-                    </div>
-                    {brokenTop && (
-                         <div className="space-y-2 pt-2 pl-1">
-                            <Label htmlFor="break-angle">{t('voxGenerator.column.breakAngle')}: {dimensions.breakAngle}°</Label>
-                            <Slider 
-                                id="break-angle"
-                                min={15}
-                                max={60}
-                                step={1}
-                                value={[parseInt(dimensions.breakAngle, 10)]}
-                                onValueChange={(val) => handleSliderChange('breakAngle', val)}
-                            />
-                        </div>
-                    )}
-               </div>
-            </div>
-          </div>
-        );
-      case 'cone':
-        return (
-           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="coneRadius">{t('voxGenerator.dims.baseRadius')} (voxels)</Label>
-              <Input id="coneRadius" type="number" value={dimensions.coneRadius} onChange={e => handleDimensionChange('coneRadius', e.target.value)} placeholder="e.g. 8" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="coneHeight">{t('voxGenerator.dims.height')} (voxels)</Label>
-              <Input id="coneHeight" type="number" value={dimensions.coneHeight} onChange={e => handleDimensionChange('coneHeight', e.target.value)} placeholder="e.g. 16" />
-            </div>
-          </div>
-        );
-      case 'arch': {
-        const circularArchHeight = (parseInt(dimensions.circularArchWidth, 10) || 0) / 2;
-        return (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>{t('voxGenerator.arch.archType')}</Label>
-              <RadioGroup value={archType} onValueChange={(v) => setArchType(v as any)} className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 pt-2">
-                  <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="rectangular" id="arch-rectangular" />
-                      <Label htmlFor="arch-rectangular">{t('voxGenerator.arch.types.rectangular')}</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="rounded" id="arch-rounded" />
-                      <Label htmlFor="arch-rounded">{t('voxGenerator.arch.types.rounded')}</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="circular" id="arch-circular" />
-                      <Label htmlFor="arch-circular">{t('voxGenerator.arch.types.circular')}</Label>
-                  </div>
-              </RadioGroup>
-            </div>
-
-            {archType === 'circular' ? (
-               <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                    <Label htmlFor="circularArchWidth">{t('voxGenerator.dims.width')} (voxels)</Label>
-                    <Input id="circularArchWidth" type="number" value={dimensions.circularArchWidth} onChange={e => handleDimensionChange('circularArchWidth', e.target.value)} placeholder="e.g. 32" />
-                     <p className="text-xs text-muted-foreground">{t('voxGenerator.arch.heightInfo', { height: circularArchHeight })}</p>
-                    </div>
-                    <div className="space-y-2">
-                    <Label htmlFor="circularArchThickness">{t('voxGenerator.arch.thickness')} (voxels)</Label>
-                    <Input id="circularArchThickness" type="number" value={dimensions.circularArchThickness} onChange={e => handleDimensionChange('circularArchThickness', e.target.value)} placeholder="e.g. 4" />
-                    </div>
-                </div>
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="archDepth">{t('voxGenerator.dims.depth')} (voxels)</Label>
-                        <Input id="archDepth" type="number" value={dimensions.archDepth} onChange={e => handleDimensionChange('archDepth', e.target.value)} placeholder="e.g. 8" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="circular-arch-orientation">{t('voxGenerator.sphere.orientation')}</Label>
-                      <Select value={circularArchOrientation} onValueChange={(v) => setCircularArchOrientation(v as any)}>
-                          <SelectTrigger id="circular-arch-orientation">
-                              <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                              <SelectItem value="top">{t('voxGenerator.arch.orientations.top')}</SelectItem>
-                              <SelectItem value="bottom">{t('voxGenerator.arch.orientations.bottom')}</SelectItem>
-                          </SelectContent>
-                      </Select>
-                    </div>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
+    return (
+      <div className="space-y-4">
+        {showCrashWarning && (
+            <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>{t('voxGenerator.errors.crashWarningTitle')}</AlertTitle>
+                <AlertDescription>{t('voxGenerator.errors.crashWarningDesc')}</AlertDescription>
+            </Alert>
+        )}
+        {(() => {
+          switch(shape) {
+            case 'cuboid':
+              return (
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="archWidth">{t('voxGenerator.dims.width')} (voxels)</Label>
-                    <Input id="archWidth" type="number" value={dimensions.archWidth} onChange={e => handleDimensionChange('archWidth', e.target.value)} placeholder="e.g. 16" />
+                    <Label htmlFor="width">{t('voxGenerator.dims.width')} (voxels)</Label>
+                    <Input id="width" type="number" value={dimensions.width} onChange={e => handleDimensionChange('width', e.target.value)} placeholder="e.g. 16" />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="archHeight">{t('voxGenerator.dims.height')} (voxels)</Label>
-                    <Input id="archHeight" type="number" value={dimensions.archHeight} onChange={e => handleDimensionChange('archHeight', e.target.value)} placeholder="e.g. 16" />
+                   <div className="space-y-2">
+                    <Label htmlFor="height">{t('voxGenerator.dims.height')} (voxels)</Label>
+                    <Input id="height" type="number" value={dimensions.height} onChange={e => handleDimensionChange('height', e.target.value)} placeholder="e.g. 16" />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="archDepth">{t('voxGenerator.dims.depth')} (voxels)</Label>
-                    <Input id="archDepth" type="number" value={dimensions.archDepth} onChange={e => handleDimensionChange('archDepth', e.target.value)} placeholder="e.g. 8" />
+                   <div className="space-y-2">
+                    <Label htmlFor="depth">{t('voxGenerator.dims.depth')} (voxels)</Label>
+                    <Input id="depth" type="number" value={dimensions.depth} onChange={e => handleDimensionChange('depth', e.target.value)} placeholder="e.g. 16" />
                   </div>
                 </div>
-
-                {archType === 'rounded' && (
+              );
+            case 'sphere':
+              return (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="radius">{t('voxGenerator.dims.radius')} (voxels)</Label>
+                    <Input id="radius" type="number" value={dimensions.radius} onChange={e => handleDimensionChange('radius', e.target.value)} placeholder="e.g. 16" />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                        <Label htmlFor="arch-outer-radius">{t('voxGenerator.arch.outerRadius')}: {dimensions.archOuterRadius}</Label>
-                        <Slider 
-                            id="arch-outer-radius"
-                            min={1}
-                            max={Math.max(1, Math.floor(parseInt(dimensions.archWidth, 10) / 2))}
-                            step={1}
-                            value={[parseInt(dimensions.archOuterRadius, 10)]}
-                            onValueChange={(val) => handleSliderChange('archOuterRadius', val)}
-                        />
+                      <Label>{t('voxGenerator.sphere.type')}</Label>
+                       <RadioGroup value={spherePart} onValueChange={(v) => setSpherePart(v as any)} className="flex pt-2 space-x-4">
+                          <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="full" id="sphere-full" />
+                              <Label htmlFor="sphere-full">{t('voxGenerator.sphere.types.full')}</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="hemisphere" id="sphere-hemi" />
+                              <Label htmlFor="sphere-hemi">{t('voxGenerator.sphere.types.hemisphere')}</Label>
+                          </div>
+                      </RadioGroup>
                     </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      }
-       case 'disk':
-        return (
-           <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                <Label htmlFor="diskRadius">{t('voxGenerator.dims.radius')} (voxels)</Label>
-                <Input id="diskRadius" type="number" value={dimensions.diskRadius} onChange={e => handleDimensionChange('diskRadius', e.target.value)} placeholder="e.g. 16" />
+                    {spherePart === 'hemisphere' && (
+                      <div className="space-y-2">
+                          <Label htmlFor="hemisphere-direction">{t('voxGenerator.sphere.orientation')}</Label>
+                          <Select value={hemisphereDirection} onValueChange={(v) => setHemisphereDirection(v as any)}>
+                              <SelectTrigger id="hemisphere-direction">
+                                  <SelectValue placeholder={t('voxGenerator.sphere.selectDirection')} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="top">{t('voxGenerator.sphere.orientations.top')}</SelectItem>
+                                  <SelectItem value="bottom">{t('voxGenerator.sphere.orientations.bottom')}</SelectItem>
+                                  <SelectItem value="vertical">{t('voxGenerator.sphere.orientations.vertical')}</SelectItem>
+                              </SelectContent>
+                          </Select>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="space-y-2">
-                <Label htmlFor="diskHeight">{t('voxGenerator.dims.height')} (voxels)</Label>
-                <Input id="diskHeight" type="number" value={dimensions.diskHeight} onChange={e => handleDimensionChange('diskHeight', e.target.value)} placeholder="e.g. 1" />
+              );
+            case 'pyramid':
+              return (
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="pyramidBase">{t('voxGenerator.dims.baseSize')} (voxels)</Label>
+                    <Input id="pyramidBase" type="number" value={dimensions.pyramidBase} onChange={e => handleDimensionChange('pyramidBase', e.target.value)} placeholder="e.g. 16" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="pyramidHeight">{t('voxGenerator.dims.height')} (voxels)</Label>
+                    <Input id="pyramidHeight" type="number" value={dimensions.pyramidHeight} onChange={e => handleDimensionChange('pyramidHeight', e.target.value)} placeholder="e.g. 16" />
+                  </div>
                 </div>
-            </div>
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{t('voxGenerator.disk.type')}</Label>
-                 <RadioGroup value={diskPart} onValueChange={(v) => setDiskPart(v as any)} className="flex pt-2 space-x-4">
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="full" id="disk-full" />
-                        <Label htmlFor="disk-full">{t('voxGenerator.disk.types.full')}</Label>
+              );
+            case 'column':
+              return (
+                 <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="columnRadius">{t('voxGenerator.dims.radius')} (voxels)</Label>
+                      <Input id="columnRadius" type="number" value={dimensions.columnRadius} onChange={e => handleDimensionChange('columnRadius', e.target.value)} placeholder="e.g. 8" />
                     </div>
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="half" id="disk-half" />
-                        <Label htmlFor="disk-half">{t('voxGenerator.disk.types.half')}</Label>
+                    <div className="space-y-2">
+                      <Label htmlFor="columnHeight">{t('voxGenerator.dims.height')} (voxels)</Label>
+                      <Input id="columnHeight" type="number" value={dimensions.columnHeight} onChange={e => handleDimensionChange('columnHeight', e.target.value)} placeholder="e.g. 16" />
                     </div>
-                </RadioGroup>
-              </div>
-              <div className="space-y-2">
-                  <Label htmlFor="disk-direction">{t('voxGenerator.disk.orientation')}</Label>
-                  <Select value={diskOrientation} onValueChange={(v) => setDiskOrientation(v as any)}>
-                      <SelectTrigger id="disk-direction">
-                          <SelectValue placeholder={t('voxGenerator.disk.selectDirection')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                          <SelectItem value="horizontal">{t('voxGenerator.disk.orientations.horizontal')}</SelectItem>
-                          <SelectItem value="vertical">{t('voxGenerator.disk.orientations.vertical')}</SelectItem>
-                      </SelectContent>
-                  </Select>
-              </div>
-            </div>
-          </div>
-        );
-      case 'ring':
-        return (
-           <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                <Label htmlFor="ringRadius">{t('voxGenerator.dims.radius')} (voxels)</Label>
-                <Input id="ringRadius" type="number" value={dimensions.ringRadius} onChange={e => handleDimensionChange('ringRadius', e.target.value)} placeholder="e.g. 16" />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                     <div className="space-y-2">
+                          <div className="flex items-center space-x-2 pt-2">
+                              <Switch id="with-base" checked={withBase} onCheckedChange={setWithBase} />
+                              <Label htmlFor="with-base">{t('voxGenerator.column.withBase')}</Label>
+                          </div>
+                           <div className="flex items-center space-x-2 pt-2">
+                              <Switch id="with-capital" checked={withCapital} onCheckedChange={(checked) => { setWithCapital(checked); }} disabled={brokenTop && !withDebris}/>
+                              <Label htmlFor="with-capital" className={cn(brokenTop && !withDebris && "text-muted-foreground")}>{t('voxGenerator.column.withCapital')}</Label>
+                          </div>
+                          {(withBase || withCapital) && (
+                              <div className="pt-2 pl-1 space-y-4 border-l-2 border-primary/20 ml-2">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-4">
+                                      <div className="space-y-2">
+                                          <Label htmlFor="baseRadius">{t('voxGenerator.column.baseRadius')}</Label>
+                                          <Input id="baseRadius" type="number" value={dimensions.baseRadius} onChange={e => handleDimensionChange('baseRadius', e.target.value)} placeholder="e.g. 10" />
+                                      </div>
+                                      <div className="space-y-2">
+                                          <Label htmlFor="baseHeight">{t('voxGenerator.column.baseHeight')}</Label>
+                                          <Input id="baseHeight" type="number" value={dimensions.baseHeight} onChange={e => handleDimensionChange('baseHeight', e.target.value)} placeholder="e.g. 4" />
+                                      </div>
+                                  </div>
+                                   {withBase && (
+                                      <div className="space-y-2 pl-4">
+                                          <Label>{t('voxGenerator.column.baseStyle')}</Label>
+                                          <RadioGroup value={baseStyle} onValueChange={(v) => setBaseStyle(v as ColumnStyle)} className="flex space-x-4">
+                                              <div className="flex items-center space-x-2"><RadioGroupItem value="simple" id="base-simple" /><Label htmlFor="base-simple">{t('voxGenerator.column.styles.simple')}</Label></div>
+                                              <div className="flex items-center space-x-2"><RadioGroupItem value="decorative" id="base-deco" /><Label htmlFor="base-deco">{t('voxGenerator.column.styles.decorative')}</Label></div>
+                                          </RadioGroup>
+                                      </div>
+                                  )}
+                                   {withCapital && (
+                                      <div className="space-y-2 pl-4">
+                                          <Label>{t('voxGenerator.column.capitalStyle')}</Label>
+                                          <RadioGroup value={capitalStyle} onValueChange={(v) => setCapitalStyle(v as ColumnStyle)} className="flex space-x-4">
+                                              <div className="flex items-center space-x-2"><RadioGroupItem value="simple" id="cap-simple" /><Label htmlFor="cap-simple">{t('voxGenerator.column.styles.simple')}</Label></div>
+                                              <div className="flex items-center space-x-2"><RadioGroupItem value="decorative" id="cap-deco" /><Label htmlFor="cap-deco">{t('voxGenerator.column.styles.decorative')}</Label></div>
+                                          </RadioGroup>
+                                      </div>
+                                  )}
+                              </div>
+                          )}
+                     </div>
+                      <div className="space-y-2">
+                          <div className="flex items-center space-x-2 pt-2">
+                              <Switch id="broken-top" checked={brokenTop} onCheckedChange={setBrokenTop}/>
+                              <Label htmlFor="broken-top" >{t('voxGenerator.column.brokenTop')}</Label>
+                          </div>
+                           {brokenTop && (
+                               <div className="pt-2 pl-1 space-y-4 border-l-2 border-primary/20 ml-2">
+                                  <div className="space-y-2 pl-4">
+                                      <Label htmlFor="breakAngleX">{t('voxGenerator.column.breakAngleX')}: {breakAngleX}°</Label>
+                                      <Slider id="breakAngleX" min={-45} max={45} step={1} value={[breakAngleX]} onValueChange={(v) => setBreakAngleX(v[0])} />
+                                  </div>
+                                   <div className="space-y-2 pl-4">
+                                      <Label htmlFor="breakAngleZ">{t('voxGenerator.column.breakAngleZ')}: {breakAngleZ}°</Label>
+                                      <Slider id="breakAngleZ" min={-45} max={45} step={1} value={[breakAngleZ]} onValueChange={(v) => setBreakAngleZ(v[0])} />
+                                  </div>
+                                   <div className="flex items-center space-x-2 pl-4">
+                                      <Switch id="with-debris" checked={withDebris} onCheckedChange={setWithDebris} />
+                                      <Label htmlFor="with-debris">{t('voxGenerator.column.withDebris')}</Label>
+                                  </div>
+                                  {withDebris && (
+                                      <div className="space-y-4 pl-4">
+                                          <div className="space-y-2">
+                                              <Label htmlFor="debrisLength">{t('voxGenerator.column.debrisLength')}</Label>
+                                              <Input id="debrisLength" type="number" value={dimensions.debrisLength} onChange={e => handleDimensionChange('debrisLength', e.target.value)} placeholder="e.g. 16" />
+                                          </div>
+                                      </div>
+                                  )}
+                               </div>
+                           )}
+                     </div>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                <Label htmlFor="ringThickness">{t('voxGenerator.arch.thickness')} (voxels)</Label>
-                <Input id="ringThickness" type="number" value={dimensions.ringThickness} onChange={e => handleDimensionChange('ringThickness', e.target.value)} placeholder="e.g. 4" />
+              );
+            case 'cone':
+              return (
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="coneRadius">{t('voxGenerator.dims.baseRadius')} (voxels)</Label>
+                    <Input id="coneRadius" type="number" value={dimensions.coneRadius} onChange={e => handleDimensionChange('coneRadius', e.target.value)} placeholder="e.g. 8" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="coneHeight">{t('voxGenerator.dims.height')} (voxels)</Label>
+                    <Input id="coneHeight" type="number" value={dimensions.coneHeight} onChange={e => handleDimensionChange('coneHeight', e.target.value)} placeholder="e.g. 16" />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                <Label htmlFor="ringHeight">{t('voxGenerator.dims.height')} (voxels)</Label>
-                <Input id="ringHeight" type="number" value={dimensions.ringHeight} onChange={e => handleDimensionChange('ringHeight', e.target.value)} placeholder="e.g. 4" />
-                </div>
-            </div>
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{t('voxGenerator.disk.type')}</Label>
-                 <RadioGroup value={ringPart} onValueChange={(v) => setRingPart(v as any)} className="flex pt-2 space-x-4">
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="full" id="ring-full" />
-                        <Label htmlFor="ring-full">{t('voxGenerator.disk.types.full')}</Label>
+              );
+            case 'arch': {
+              const circularArchHeight = (parseInt(dimensions.circularArchWidth, 10) || 0) / 2;
+              return (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>{t('voxGenerator.arch.archType')}</Label>
+                    <RadioGroup value={archType} onValueChange={(v) => setArchType(v as any)} className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 pt-2">
+                        <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="rectangular" id="arch-rectangular" />
+                            <Label htmlFor="arch-rectangular">{t('voxGenerator.arch.types.rectangular')}</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="rounded" id="arch-rounded" />
+                            <Label htmlFor="arch-rounded">{t('voxGenerator.arch.types.rounded')}</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="circular" id="arch-circular" />
+                            <Label htmlFor="arch-circular">{t('voxGenerator.arch.types.circular')}</Label>
+                        </div>
+                    </RadioGroup>
+                  </div>
+
+                  {archType === 'circular' ? (
+                     <div className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                          <Label htmlFor="circularArchWidth">{t('voxGenerator.dims.width')} (voxels)</Label>
+                          <Input id="circularArchWidth" type="number" value={dimensions.circularArchWidth} onChange={e => handleDimensionChange('circularArchWidth', e.target.value)} placeholder="e.g. 32" />
+                           <p className="text-xs text-muted-foreground">{t('voxGenerator.arch.heightInfo', { height: circularArchHeight })}</p>
+                          </div>
+                          <div className="space-y-2">
+                          <Label htmlFor="circularArchThickness">{t('voxGenerator.arch.thickness')} (voxels)</Label>
+                          <Input id="circularArchThickness" type="number" value={dimensions.circularArchThickness} onChange={e => handleDimensionChange('circularArchThickness', e.target.value)} placeholder="e.g. 4" />
+                          </div>
+                      </div>
+                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                              <Label htmlFor="archDepth">{t('voxGenerator.dims.depth')} (voxels)</Label>
+                              <Input id="archDepth" type="number" value={dimensions.archDepth} onChange={e => handleDimensionChange('archDepth', e.target.value)} placeholder="e.g. 8" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="circular-arch-orientation">{t('voxGenerator.sphere.orientation')}</Label>
+                            <Select value={circularArchOrientation} onValueChange={(v) => setCircularArchOrientation(v as any)}>
+                                <SelectTrigger id="circular-arch-orientation">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="top">{t('voxGenerator.arch.orientations.top')}</SelectItem>
+                                    <SelectItem value="bottom">{t('voxGenerator.arch.orientations.bottom')}</SelectItem>
+                                </SelectContent>
+                            </Select>
+                          </div>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="half" id="ring-half" />
-                        <Label htmlFor="ring-half">{t('voxGenerator.disk.types.half')}</Label>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="archWidth">{t('voxGenerator.dims.width')} (voxels)</Label>
+                          <Input id="archWidth" type="number" value={dimensions.archWidth} onChange={e => handleDimensionChange('archWidth', e.target.value)} placeholder="e.g. 16" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="archHeight">{t('voxGenerator.dims.height')} (voxels)</Label>
+                          <Input id="archHeight" type="number" value={dimensions.archHeight} onChange={e => handleDimensionChange('archHeight', e.target.value)} placeholder="e.g. 16" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="archDepth">{t('voxGenerator.dims.depth')} (voxels)</Label>
+                          <Input id="archDepth" type="number" value={dimensions.archDepth} onChange={e => handleDimensionChange('archDepth', e.target.value)} placeholder="e.g. 8" />
+                        </div>
+                      </div>
+
+                      {archType === 'rounded' && (
+                          <div className="space-y-2">
+                              <Label htmlFor="arch-outer-radius">{t('voxGenerator.arch.outerRadius')}: {dimensions.archOuterRadius}</Label>
+                              <Slider 
+                                  id="arch-outer-radius"
+                                  min={1}
+                                  max={Math.max(1, Math.floor(parseInt(dimensions.archWidth, 10) / 2))}
+                                  step={1}
+                                  value={[parseInt(dimensions.archOuterRadius, 10)]}
+                                  onValueChange={(val) => handleSliderChange('archOuterRadius', val)}
+                              />
+                          </div>
+                      )}
                     </div>
-                </RadioGroup>
-              </div>
-              <div className="space-y-2">
-                  <Label htmlFor="ring-direction">{t('voxGenerator.disk.orientation')}</Label>
-                  <Select value={ringOrientation} onValueChange={(v) => setRingOrientation(v as any)}>
-                      <SelectTrigger id="ring-direction">
-                          <SelectValue placeholder={t('voxGenerator.disk.selectDirection')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                          <SelectItem value="horizontal">{t('voxGenerator.disk.orientations.horizontal')}</SelectItem>
-                          <SelectItem value="vertical">{t('voxGenerator.disk.orientations.vertical')}</SelectItem>
-                      </SelectContent>
-                  </Select>
-              </div>
-            </div>
-          </div>
-        );
-      default:
-        return null;
-    }
+                  )}
+                </div>
+              );
+            }
+             case 'disk':
+              return (
+                 <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                      <Label htmlFor="diskRadius">{t('voxGenerator.dims.radius')} (voxels)</Label>
+                      <Input id="diskRadius" type="number" value={dimensions.diskRadius} onChange={e => handleDimensionChange('diskRadius', e.target.value)} placeholder="e.g. 16" />
+                      </div>
+                      <div className="space-y-2">
+                      <Label htmlFor="diskHeight">{t('voxGenerator.dims.height')} (voxels)</Label>
+                      <Input id="diskHeight" type="number" value={dimensions.diskHeight} onChange={e => handleDimensionChange('diskHeight', e.target.value)} placeholder="e.g. 1" />
+                      </div>
+                  </div>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{t('voxGenerator.disk.type')}</Label>
+                       <RadioGroup value={diskPart} onValueChange={(v) => setDiskPart(v as any)} className="flex pt-2 space-x-4">
+                          <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="full" id="disk-full" />
+                              <Label htmlFor="disk-full">{t('voxGenerator.disk.types.full')}</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="half" id="disk-half" />
+                              <Label htmlFor="disk-half">{t('voxGenerator.disk.types.half')}</Label>
+                          </div>
+                      </RadioGroup>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="disk-direction">{t('voxGenerator.disk.orientation')}</Label>
+                        <Select value={diskOrientation} onValueChange={(v) => setDiskOrientation(v as any)}>
+                            <SelectTrigger id="disk-direction">
+                                <SelectValue placeholder={t('voxGenerator.disk.selectDirection')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="horizontal">{t('voxGenerator.disk.orientations.horizontal')}</SelectItem>
+                                <SelectItem value="vertical">{t('voxGenerator.disk.orientations.vertical')}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                  </div>
+                </div>
+              );
+            case 'ring':
+              return (
+                 <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                      <Label htmlFor="ringRadius">{t('voxGenerator.dims.radius')} (voxels)</Label>
+                      <Input id="ringRadius" type="number" value={dimensions.ringRadius} onChange={e => handleDimensionChange('ringRadius', e.target.value)} placeholder="e.g. 16" />
+                      </div>
+                      <div className="space-y-2">
+                      <Label htmlFor="ringThickness">{t('voxGenerator.arch.thickness')} (voxels)</Label>
+                      <Input id="ringThickness" type="number" value={dimensions.ringThickness} onChange={e => handleDimensionChange('ringThickness', e.target.value)} placeholder="e.g. 4" />
+                      </div>
+                      <div className="space-y-2">
+                      <Label htmlFor="ringHeight">{t('voxGenerator.dims.height')} (voxels)</Label>
+                      <Input id="ringHeight" type="number" value={dimensions.ringHeight} onChange={e => handleDimensionChange('ringHeight', e.target.value)} placeholder="e.g. 4" />
+                      </div>
+                  </div>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>{t('voxGenerator.disk.type')}</Label>
+                       <RadioGroup value={ringPart} onValueChange={(v) => setRingPart(v as any)} className="flex pt-2 space-x-4">
+                          <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="full" id="ring-full" />
+                              <Label htmlFor="ring-full">{t('voxGenerator.disk.types.full')}</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="half" id="ring-half" />
+                              <Label htmlFor="ring-half">{t('voxGenerator.disk.types.half')}</Label>
+                          </div>
+                      </RadioGroup>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="ring-direction">{t('voxGenerator.disk.orientation')}</Label>
+                        <Select value={ringOrientation} onValueChange={(v) => setRingOrientation(v as any)}>
+                            <SelectTrigger id="ring-direction">
+                                <SelectValue placeholder={t('voxGenerator.disk.selectDirection')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="horizontal">{t('voxGenerator.disk.orientations.horizontal')}</SelectItem>
+                                <SelectItem value="vertical">{t('voxGenerator.disk.orientations.vertical')}</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                  </div>
+                </div>
+              );
+            default:
+              return null;
+          }
+        })()}
+      </div>
+    );
   }
 
   const renderTextInputs = () => {
@@ -1276,18 +1349,18 @@ export function VoxGenerator() {
                             <RadioGroupItem value="cuboid" id="r-cuboid" />
                             <Label htmlFor="r-cuboid">{t('voxGenerator.shapes.cuboid')}</Label>
                         </div>
-                        {/* <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-2">
                             <RadioGroupItem value="sphere" id="r-sphere" />
                             <Label htmlFor="r-sphere">{t('voxGenerator.shapes.sphere')}</Label>
-                        </div> */}
+                        </div>
                         <div className="flex items-center space-x-2">
                             <RadioGroupItem value="pyramid" id="r-pyramid" />
                             <Label htmlFor="r-pyramid">{t('voxGenerator.shapes.pyramid')}</Label>
                         </div>
-                        {/* <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-2">
                             <RadioGroupItem value="column" id="r-column" />
                             <Label htmlFor="r-column">{t('voxGenerator.shapes.column')}</Label>
-                        </div> */}
+                        </div>
                         <div className="flex items-center space-x-2">
                             <RadioGroupItem value="cone" id="r-cone" />
                             <Label htmlFor="r-cone">{t('voxGenerator.shapes.cone')}</Label>
@@ -1330,3 +1403,7 @@ export function VoxGenerator() {
     </div>
   );
 }
+
+
+
+    

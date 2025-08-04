@@ -171,9 +171,24 @@ export default {
         withBase: 'Добавить основание',
         withCapital: 'Добавить капитель',
         brokenTop: 'Сломанный верх',
+        withDebris: 'Добавить обломок',
+        debrisLength: 'Длина обломка',
+        debrisHasCapital: 'Обломок с капителью',
         baseRadius: 'Радиус осн./капители',
         baseHeight: 'Высота осн./капители',
-        breakAngle: 'Угол среза',
+        breakAngleX: 'Наклон по оси X',
+        breakAngleZ: 'Наклон по оси Z',
+        placement: {
+            label: 'Размещение',
+            center: 'По центру блока',
+            corner: 'На стыке 4 блоков',
+        },
+        baseStyle: 'Стиль основания',
+        capitalStyle: 'Стиль капители',
+        styles: {
+            simple: 'Простой',
+            decorative: 'Декоративный'
+        }
     },
     arch: {
         archType: 'Тип арки',
@@ -236,6 +251,8 @@ export default {
       baseRadiusTooSmall: 'Радиус основания должен быть больше радиуса колонны.',
       noQrUrl: 'URL пуст',
       noQrUrlDesc: 'Пожалуйста, введите URL или текст для генерации QR-кода.',
+      crashWarningTitle: 'Возможен сбой игры',
+      crashWarningDesc: 'Размеры, кратные 8, могут вызывать проблемы с модом "Automatic Chiselling", приводящие к сбою. Используйте на свой страх и риск.',
     },
   },
   schematicPreview: {

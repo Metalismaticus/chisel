@@ -18,6 +18,7 @@ export interface VoxOutput {
   depth: number;
   isVox: boolean;
   voxData: string; // Base64 encoded string
+  voxSize: {x: number, y: number, z: number};
 }
 
 // This is the main exported function that the client will call.
@@ -41,5 +42,6 @@ export async function generateVoxFlow(input: VoxShape): Promise<VoxOutput> {
       depth: result.depth,
       isVox: result.isVox,
       voxData: voxDataB64,
+      voxSize: result.voxSize
   };
 }

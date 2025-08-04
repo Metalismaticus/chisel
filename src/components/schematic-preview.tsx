@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useRef } from 'react';
@@ -12,7 +13,7 @@ import { useI18n } from '@/locales/client';
 import { VoxPreview } from './vox-preview';
 
 interface SchematicPreviewProps {
-  schematicOutput?: (SchematicOutput & { depth?: number }) | null;
+  schematicOutput?: SchematicOutput | null;
   loading: boolean;
 }
 
@@ -33,9 +34,20 @@ export function SchematicPreview({ schematicOutput, loading }: SchematicPreviewP
     if (!isVox || !schematicOutput) {
       return null;
     }
-    const blocksX = Math.ceil(schematicOutput.width / BLOCK_SIZE);
-    const blocksY = Math.ceil(schematicOutput.height / BLOCK_SIZE);
-    const blocksZ = Math.ceil((schematicOutput.depth || 0) / BLOCK_SIZE);
+    
+    if (schematicOutput.totalVoxels) {
+        return schematicOutput.totalVoxels.toLocaleString();
+    }
+    
+    if (!schematicOutput.voxData || !schematicOutput.voxSize) {
+      return null;
+    }
+    const { voxSize } = schematicOutput;
+
+    // vox-saver uses y for depth, z for height.
+    const blocksX = Math.ceil(voxSize.x / BLOCK_SIZE);
+    const blocksY = Math.ceil(voxSize.z / BLOCK_SIZE); // height
+    const blocksZ = Math.ceil(voxSize.y / BLOCK_SIZE); // depth
 
     return (blocksX * blocksY * blocksZ).toLocaleString();
   };

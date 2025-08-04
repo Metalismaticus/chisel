@@ -171,9 +171,24 @@ export default {
         withBase: 'Add base',
         withCapital: 'Add capital',
         brokenTop: 'Broken top',
+        withDebris: 'Add debris',
+        debrisLength: 'Debris length',
+        debrisHasCapital: 'Debris has capital',
         baseRadius: 'Base/Capital Radius',
         baseHeight: 'Base/Capital Height',
-        breakAngle: 'Slice angle',
+        breakAngleX: 'Break Angle X',
+        breakAngleZ: 'Break Angle Z',
+        placement: {
+            label: 'Placement',
+            center: 'Center of a block',
+            corner: 'On the corner of 4 blocks',
+        },
+        baseStyle: 'Base Style',
+        capitalStyle: 'Capital Style',
+        styles: {
+            simple: 'Simple',
+            decorative: 'Decorative'
+        }
     },
     arch: {
         archType: 'Arch Type',
@@ -236,6 +251,8 @@ export default {
       baseRadiusTooSmall: 'Base radius must be larger than the column radius.',
       noQrUrl: 'URL is empty',
       noQrUrlDesc: 'Please enter a URL or text to generate a QR code.',
+      crashWarningTitle: 'Potential Game Crash',
+      crashWarningDesc: 'Sizes that are multiples of 8 can cause issues with the "Automatic Chiselling" mod, leading to a crash. Use at your own risk.',
     },
   },
   schematicPreview: {

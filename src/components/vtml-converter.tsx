@@ -24,6 +24,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { VtmlPalette } from './vtml-palette';
+import { Input } from './ui/input';
 
 
 // Game-tested palette
@@ -309,10 +310,22 @@ export function VtmlConverter() {
     }
   }, [photoDataUri, conversionMode, outputWidth, outputHeight, preserveAspectRatio, fontSize, dithering, brightness, contrast, posterizeLevels, charAspectRatio, toast, t]);
   
-  const handleSettingsChange = (setter: React.Dispatch<React.SetStateAction<any>>) => (value: any) => {
+  const handleSettingsChange = (setter: React.Dispatch<React.SetStateAction<any>>, isFloat = false) => (value: any) => {
     setter(value);
     setIsDirty(true);
   };
+  
+  const handleInputChange = (setter: React.Dispatch<React.SetStateAction<any>>, isFloat = false) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = isFloat ? parseFloat(e.target.value) : parseInt(e.target.value, 10);
+    if (!isNaN(value)) {
+        setter(value);
+        setIsDirty(true);
+    } else if (e.target.value === '') {
+        setter(isFloat ? 0.0 : 0);
+        setIsDirty(true);
+    }
+  }
+
 
   const handleSliderChange = (setter: React.Dispatch<React.SetStateAction<any>>) => (value: number[]) => {
       setter(value[0]);
@@ -484,60 +497,60 @@ export function VtmlConverter() {
                 <Switch id="dithering-mode" checked={dithering} onCheckedChange={handleSettingsChange(setDithering)} disabled={isLoading} />
                 <Label htmlFor="dithering-mode">{t('vtmlConverter.step2.dithering')}</Label>
             </div>
-            <div className="grid gap-2">
-                <div className="flex justify-between items-center">
-                    <Label htmlFor="brightness-slider">{t('vtmlConverter.step2.brightness')}</Label>
-                    <span className="text-sm font-mono px-2 py-1 rounded-md bg-muted">{brightness}%</span>
+             <div className="grid gap-2">
+                <Label htmlFor="brightness-slider">{t('vtmlConverter.step2.brightness')}</Label>
+                <div className="flex items-center gap-4">
+                    <Slider id="brightness-slider" min={0} max={200} step={1} value={[brightness]} onValueChange={handleSliderChange(setBrightness)} disabled={isLoading} className="flex-1" />
+                    <Input type="number" value={brightness} onChange={handleInputChange(setBrightness)} className="w-20" disabled={isLoading} />
                 </div>
-                <Slider id="brightness-slider" min={0} max={200} step={1} value={[brightness]} onValueChange={handleSliderChange(setBrightness)} disabled={isLoading} />
             </div>
              <div className="grid gap-2">
-                <div className="flex justify-between items-center">
-                    <Label htmlFor="contrast-slider">{t('vtmlConverter.step2.contrast')}</Label>
-                    <span className="text-sm font-mono px-2 py-1 rounded-md bg-muted">{contrast}%</span>
+                <Label htmlFor="contrast-slider">{t('vtmlConverter.step2.contrast')}</Label>
+                 <div className="flex items-center gap-4">
+                    <Slider id="contrast-slider" min={0} max={200} step={1} value={[contrast]} onValueChange={handleSliderChange(setContrast)} disabled={isLoading} className="flex-1"/>
+                    <Input type="number" value={contrast} onChange={handleInputChange(setContrast)} className="w-20" disabled={isLoading} />
                 </div>
-                <Slider id="contrast-slider" min={0} max={200} step={1} value={[contrast]} onValueChange={handleSliderChange(setContrast)} disabled={isLoading} />
             </div>
             <div className="grid gap-2">
-                <div className="flex justify-between items-center">
-                    <Label htmlFor="posterize-slider">{t('vtmlConverter.step2.posterization')}</Label>
-                    <span className="text-sm font-mono px-2 py-1 rounded-md bg-muted">{posterizeLevels}</span>
+                <Label htmlFor="posterize-slider">{t('vtmlConverter.step2.posterization')}</Label>
+                 <div className="flex items-center gap-4">
+                    <Slider id="posterize-slider" min={2} max={32} step={1} value={[posterizeLevels]} onValueChange={handleSliderChange(setPosterizeLevels)} disabled={isLoading} className="flex-1"/>
+                    <Input type="number" value={posterizeLevels} onChange={handleInputChange(setPosterizeLevels)} className="w-20" disabled={isLoading} />
                 </div>
-                <Slider id="posterize-slider" min={2} max={32} step={1} value={[posterizeLevels]} onValueChange={handleSliderChange(setPosterizeLevels)} disabled={isLoading} />
             </div>
             <div className="grid gap-2">
-                <div className="flex justify-between items-center">
-                  <Label htmlFor="char-aspect-ratio-slider">{t('vtmlConverter.step2.charAspectRatio')}</Label>
-                  <span className="text-sm font-mono px-2 py-1 rounded-md bg-muted">{charAspectRatio.toFixed(1)}</span>
+                <Label htmlFor="char-aspect-ratio-slider">{t('vtmlConverter.step2.charAspectRatio')}</Label>
+                <div className="flex items-center gap-4">
+                    <Slider id="char-aspect-ratio-slider" min={1.0} max={3.0} step={0.1} value={[charAspectRatio]} onValueChange={handleDecimalSliderChange(setCharAspectRatio)} disabled={isLoading} className="flex-1"/>
+                    <Input type="number" step="0.1" value={charAspectRatio} onChange={handleInputChange(setCharAspectRatio, true)} className="w-20" disabled={isLoading} />
                 </div>
-                <Slider id="char-aspect-ratio-slider" min={1.0} max={3.0} step={0.1} value={[charAspectRatio]} onValueChange={handleDecimalSliderChange(setCharAspectRatio)} disabled={isLoading} />
             </div>
              <div className="flex items-center space-x-2">
                 <Switch id="preserve-aspect-ratio-mode" checked={preserveAspectRatio} onCheckedChange={handleSettingsChange(setPreserveAspectRatio)} disabled={isLoading} />
                 <Label htmlFor="preserve-aspect-ratio-mode">{t('vtmlConverter.step2.preserveAspectRatio')}</Label>
             </div>
             <div className="grid gap-2">
-              <div className="flex justify-between items-center">
-                <Label htmlFor="width-slider">{t('vtmlConverter.step2.outputWidth')}</Label>
-                <span className="text-sm font-mono px-2 py-1 rounded-md bg-muted">{outputWidth}</span>
-              </div>
-              <Slider id="width-slider" min={20} max={400} step={1} value={[outputWidth]} onValueChange={handleSliderChange(setOutputWidth)} disabled={isLoading} />
+              <Label htmlFor="width-slider">{t('vtmlConverter.step2.outputWidth')}</Label>
+               <div className="flex items-center gap-4">
+                    <Slider id="width-slider" min={20} max={400} step={1} value={[outputWidth]} onValueChange={handleSliderChange(setOutputWidth)} disabled={isLoading} className="flex-1"/>
+                    <Input type="number" value={outputWidth} onChange={handleInputChange(setOutputWidth)} className="w-20" disabled={isLoading} />
+               </div>
             </div>
             {!preserveAspectRatio && (
               <div className="grid gap-2">
-                <div className="flex justify-between items-center">
-                  <Label htmlFor="height-slider">{t('vtmlConverter.step2.outputHeight')}</Label>
-                  <span className="text-sm font-mono px-2 py-1 rounded-md bg-muted">{outputHeight}</span>
-                </div>
-                <Slider id="height-slider" min={20} max={400} step={1} value={[outputHeight]} onValueChange={handleSliderChange(setOutputHeight)} disabled={isLoading} />
+                <Label htmlFor="height-slider">{t('vtmlConverter.step2.outputHeight')}</Label>
+                 <div className="flex items-center gap-4">
+                    <Slider id="height-slider" min={20} max={400} step={1} value={[outputHeight]} onValueChange={handleSliderChange(setOutputHeight)} disabled={isLoading} className="flex-1"/>
+                    <Input type="number" value={outputHeight} onChange={handleInputChange(setOutputHeight)} className="w-20" disabled={isLoading} />
+                 </div>
               </div>
             )}
             <div className="grid gap-2">
-              <div className="flex justify-between items-center">
-                <Label htmlFor="font-size">{t('vtmlConverter.step2.fontSize')}</Label>
-                <span className="text-sm font-mono px-2 py-1 rounded-md bg-muted">{fontSize}</span>
+              <Label htmlFor="font-size">{t('vtmlConverter.step2.fontSize')}</Label>
+               <div className="flex items-center gap-4">
+                <Slider id="font-size" min={1} max={24} step={1} value={[fontSize]} onValueChange={handleSliderChange(setFontSize)} disabled={isLoading} className="flex-1"/>
+                <Input type="number" value={fontSize} onChange={handleInputChange(setFontSize)} className="w-20" disabled={isLoading} />
               </div>
-              <Slider id="font-size" min={1} max={24} step={1} value={[fontSize]} onValueChange={handleSliderChange(setFontSize)} disabled={isLoading} />
             </div>
              <Button onClick={handleGenerateClick} disabled={isLoading || !isDirty || !photoDataUri} className="w-full uppercase font-bold tracking-wider">
               {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
@@ -584,5 +597,7 @@ export function VtmlConverter() {
     </div>
   );
 }
+
+    
 
     

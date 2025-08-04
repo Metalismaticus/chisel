@@ -33,6 +33,7 @@ export interface TextToVoxOutput {
   depth: number;
   isVox: boolean;
   voxData: string; // Base64 encoded string
+  voxSize: {x: number, y: number, z: number};
 }
 
 function createSchematicData(name: string, dimensions: {width: number, height: number, depth?: number}): string {
@@ -159,5 +160,6 @@ export async function generateTextToVoxFlow(input: TextToVoxInput): Promise<Text
       depth: finalDepth,
       isVox: true,
       voxData: voxDataB64,
+      voxSize: voxSize,
   };
 }
