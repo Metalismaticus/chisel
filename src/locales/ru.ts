@@ -120,6 +120,7 @@ export default {
       text: 'Текст',
       qr: 'QR-код',
       pixelart: 'Пиксель-арт',
+      sign: 'Табличка',
     },
     shapeLabel: '3D Фигура',
     shapes: {
@@ -187,7 +188,8 @@ export default {
         capitalStyle: 'Стиль капители',
         styles: {
             simple: 'Простой',
-            decorative: 'Декоративный'
+            decorative: 'Декоративный',
+            ionic: 'Ионический'
         }
     },
     arch: {
@@ -232,6 +234,19 @@ export default {
         withBackdrop: 'Добавить монтажную плиту',
         backdropDepth: 'Глубина плиты',
     },
+    sign: {
+        width: 'Ширина таблички',
+        height: 'Высота таблички',
+        frameWidth: 'Толщина рамки',
+        iconLabel: 'Иконка',
+        findIcons: 'Найти иконки',
+        uploadButton: 'Выбрать иконку',
+        textHint: 'Только английские символы. Не более 8 символов на строку.',
+        layout: 'Макет',
+        iconScale: 'Масштаб иконки',
+        iconOffsetY: 'Смещение иконки по вертикали',
+        textOffsetY: 'Смещение текста по вертикали',
+    },
     button: 'Сгенерировать .vox файл',
     help: {
         title: 'О VOX Генераторе',
@@ -253,6 +268,8 @@ export default {
       noQrUrlDesc: 'Пожалуйста, введите URL или текст для генерации QR-кода.',
       crashWarningTitle: 'Возможен сбой игры',
       crashWarningDesc: 'Размеры, кратные 8, могут вызывать проблемы с модом "Automatic Chiselling", приводящие к сбою. Используйте на свой страх и риск.',
+      noIcon: 'Иконка не выбрана',
+      noIconDesc: 'Пожалуйста, загрузите иконку для таблички.',
     },
   },
   schematicPreview: {
@@ -333,3 +350,6 @@ export default {
 } as const;
 
     
+
+
+

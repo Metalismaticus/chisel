@@ -120,6 +120,7 @@ export default {
       text: 'Text',
       qr: 'QR Code',
       pixelart: 'PixelArt',
+      sign: 'Sign',
     },
     shapeLabel: '3D Shape',
     shapes: {
@@ -187,7 +188,8 @@ export default {
         capitalStyle: 'Capital Style',
         styles: {
             simple: 'Simple',
-            decorative: 'Decorative'
+            decorative: 'Decorative',
+            ionic: 'Ionic'
         }
     },
     arch: {
@@ -232,6 +234,19 @@ export default {
         withBackdrop: 'Add Mounting Plate',
         backdropDepth: 'Plate Depth',
     },
+    sign: {
+        width: 'Sign Width',
+        height: 'Sign Height',
+        frameWidth: 'Frame Width',
+        iconLabel: 'Icon',
+        findIcons: 'Find icons',
+        uploadButton: 'Choose Icon',
+        textHint: 'English characters only. Max 8 characters per line.',
+        layout: 'Layout',
+        iconScale: 'Icon Scale',
+        iconOffsetY: 'Icon Vertical Offset',
+        textOffsetY: 'Text Vertical Offset',
+    },
     button: 'Generate .vox File',
     help: {
       title: 'About the VOX Generator',
@@ -253,6 +268,8 @@ export default {
       noQrUrlDesc: 'Please enter a URL or text to generate a QR code.',
       crashWarningTitle: 'Potential Game Crash',
       crashWarningDesc: 'Sizes that are multiples of 8 can cause issues with the "Automatic Chiselling" mod, leading to a crash. Use at your own risk.',
+      noIcon: 'No icon selected',
+      noIconDesc: 'Please upload an icon for the sign.',
     },
   },
   schematicPreview: {
@@ -333,3 +350,6 @@ export default {
 } as const;
 
     
+
+
+
