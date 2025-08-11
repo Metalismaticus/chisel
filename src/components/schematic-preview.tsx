@@ -31,17 +31,12 @@ export function SchematicPreview({ schematicOutput, loading }: SchematicPreviewP
   const isScaled = schematicOutput && (schematicOutput.originalWidth || schematicOutput.originalHeight) && (schematicOutput.width !== schematicOutput.originalWidth || schematicOutput.height !== schematicOutput.originalHeight);
   
   const getTotalBlocksText = () => {
-    if (!isVox || !schematicOutput) {
+    if (!isVox || !schematicOutput || !schematicOutput.voxSize) {
       return null;
     }
     
-    if (schematicOutput.totalVoxels) {
-        return schematicOutput.totalVoxels.toLocaleString();
-    }
-    
-    if (!schematicOutput.voxData || !schematicOutput.voxSize) {
-      return null;
-    }
+    // For signs, totalVoxels is provided, which is more accurate than bounding box for irregular shapes.
+    // However, the user wants to see the number of 16x16x16 blocks, not voxels.
     const { voxSize } = schematicOutput;
 
     // vox-saver uses y for depth, z for height.

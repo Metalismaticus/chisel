@@ -576,12 +576,8 @@ export function VoxGenerator() {
     }
 
   const handleGenerateSign = async () => {
-    if (!signIconFile) {
+     if (!signText.trim() && !signIconFile) {
         toast({ title: t('voxGenerator.errors.noIcon'), description: t('voxGenerator.errors.noIconDesc'), variant: 'destructive' });
-        return;
-    }
-     if (!signText.trim()) {
-        toast({ title: t('textConstructor.errors.noText'), description: t('textConstructor.errors.noTextDesc'), variant: 'destructive' });
         return;
     }
     
@@ -590,20 +586,25 @@ export function VoxGenerator() {
 
     try {
         const contentWidth = signWidth - signFrameWidth * 2;
+        
+        let iconPixels: boolean[] = [], iconWidth = 0, iconHeight = 0;
+        
+        if (signIconFile) {
+            const img = document.createElement('img');
+            const imgPromise = new Promise<void>((resolve, reject) => {
+                img.onload = () => resolve();
+                img.onerror = reject;
+                img.src = URL.createObjectURL(signIconFile);
+            });
+            await imgPromise;
 
-        // Process Icon
-        const img = document.createElement('img');
-        const imgPromise = new Promise<void>((resolve, reject) => {
-            img.onload = () => resolve();
-            img.onerror = reject;
-            img.src = URL.createObjectURL(signIconFile);
-        });
-        await imgPromise;
-
-        const iconTargetWidth = Math.floor(contentWidth * (signIconScale / 100));
-        const { pixels: iconPixels, width: iconWidth, height: iconHeight } = await imageToPixels(img, iconTargetWidth);
-
-        // Process Text
+            const iconTargetWidth = Math.floor(contentWidth * (signIconScale / 100));
+            const iconData = await imageToPixels(img, iconTargetWidth);
+            iconPixels = iconData.pixels;
+            iconWidth = iconData.width;
+            iconHeight = iconData.height;
+        }
+        
         const { pixels: textPixels, width: textWidth, height: textHeight } = await rasterizePixelText({ 
             text: signText.toUpperCase(),
             maxWidth: contentWidth,
@@ -1608,5 +1609,7 @@ export function VoxGenerator() {
 
 
   
+
+    
 
     
