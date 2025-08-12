@@ -132,6 +132,7 @@ export default {
       arch: 'Arch',
       disk: 'Disk',
       ring: 'Ring',
+      haystack: 'Haystack',
     },
     dims: {
       width: 'Width',
@@ -238,7 +239,8 @@ export default {
         width: 'Sign Width',
         height: 'Sign Height',
         frameWidth: 'Frame Width',
-        iconLabel: 'Icon',
+        withFrame: 'With Frame',
+        iconLabel: 'Icon (optional)',
         findIcons: 'Find icons',
         uploadButton: 'Choose Icon',
         textHint: 'English characters only. Max 8 characters per line.',
@@ -268,8 +270,8 @@ export default {
       noQrUrlDesc: 'Please enter a URL or text to generate a QR code.',
       crashWarningTitle: 'Potential Game Crash',
       crashWarningDesc: 'Sizes that are multiples of 8 can cause issues with the "Automatic Chiselling" mod, leading to a crash. Use at your own risk.',
-      noIcon: 'No icon selected',
-      noIconDesc: 'Please upload an icon for the sign.',
+      noIcon: 'No text or icon provided',
+      noIconDesc: 'Please provide text or an icon for the sign.',
     },
   },
   schematicPreview: {
@@ -350,6 +352,3 @@ export default {
 } as const;
 
     
-
-
-

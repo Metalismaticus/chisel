@@ -71,6 +71,8 @@ export function VoxGenerator() {
     ringThickness: '4',
     ringHeight: '4',
     debrisLength: '16',
+    haystackRadius: '8',
+    haystackHeight: '12',
   });
   const [spherePart, setSpherePart] = useState<'full' | 'hemisphere'>('full');
   const [hemisphereDirection, setHemisphereDirection] = useState<'top' | 'bottom' | 'vertical'>('top');
@@ -96,7 +98,6 @@ export function VoxGenerator() {
   const [fontSize, setFontSize] = useState([24]);
   const [font, setFont] = useState<FontStyle>('monospace');
   const [fontFile, setFontFile] = useState<File | null>(null);
-  const fontFileUrlRef = useRef<string | null>(null);
   const [textVoxMode, setTextVoxMode] = useState<TextVoxMode>('extrude');
   const [textStickerMode, setTextStickerMode] = useState(true);
   const [letterDepth, setLetterDepth] = useState([5]);
@@ -139,7 +140,8 @@ export function VoxGenerator() {
   const [signIconScale, setSignIconScale] = useState(50);
   const [signIconOffsetY, setSignIconOffsetY] = useState(0);
   const [textOffsetY, setTextOffsetY] = useState(0);
-  
+  const [signFrame, setSignFrame] = useState(true);
+  const [signWithIcon, setSignWithIcon] = useState(true);
 
 
   const [schematicOutput, setSchematicOutput] = useState<any | null>(null);
@@ -179,7 +181,6 @@ export function VoxGenerator() {
     return () => {
       if (paPreviewUrl) { URL.revokeObjectURL(paPreviewUrl); }
       if (signIconUrl) { URL.revokeObjectURL(signIconUrl); }
-      if (fontFileUrlRef.current) { URL.revokeObjectURL(fontFileUrlRef.current); }
     };
   }, [paPreviewUrl, signIconUrl]);
   
@@ -231,13 +232,18 @@ export function VoxGenerator() {
     
     setIsPending(true);
     setSchematicOutput(null);
+    let fontUrl: string | undefined = undefined;
 
     try {
+        if (fontFile && font === 'custom') {
+            fontUrl = URL.createObjectURL(fontFile);
+        }
+
         const { pixels, width, height } = await rasterizeText({
             text, 
             font, 
             fontSize: fontSize[0], 
-            fontUrl: fontFileUrlRef.current ?? undefined, 
+            fontUrl: fontUrl,
             outline: textOutline,
             outlineGap: textOutlineGap[0],
         });
@@ -273,6 +279,9 @@ export function VoxGenerator() {
         });
         setSchematicOutput(null);
     } finally {
+        if (fontUrl) {
+            URL.revokeObjectURL(fontUrl);
+        }
         setIsPending(false);
     }
   }
@@ -449,6 +458,13 @@ export function VoxGenerator() {
           shapeParams = { type: 'ring', radius, thickness, height, part, orientation: ringOrientation };
           break;
         }
+        case 'haystack': {
+          const radius = validateAndParse(dimensions.haystackRadius, t('voxGenerator.dims.baseRadius'));
+          const height = validateAndParse(dimensions.haystackHeight, t('voxGenerator.dims.height'));
+          if (radius === null || height === null) return;
+          shapeParams = { type: 'haystack', radius, height };
+          break;
+        }
         default:
            toast({ title: t('voxGenerator.errors.unknownShape'), description: t('voxGenerator.errors.selectValidShape'), variant: "destructive" });
           return;
@@ -576,7 +592,7 @@ export function VoxGenerator() {
     }
 
   const handleGenerateSign = async () => {
-     if (!signText.trim() && !signIconFile) {
+    if (!signText.trim() && (!signIconFile || !signWithIcon)) {
         toast({ title: t('voxGenerator.errors.noIcon'), description: t('voxGenerator.errors.noIconDesc'), variant: 'destructive' });
         return;
     }
@@ -585,11 +601,11 @@ export function VoxGenerator() {
     setSchematicOutput(null);
 
     try {
-        const contentWidth = signWidth - signFrameWidth * 2;
+        const contentWidth = signWidth - (signFrame ? signFrameWidth * 2 : 0);
         
         let iconPixels: boolean[] = [], iconWidth = 0, iconHeight = 0;
         
-        if (signIconFile) {
+        if (signIconFile && signWithIcon) {
             const img = document.createElement('img');
             const imgPromise = new Promise<void>((resolve, reject) => {
                 img.onload = () => resolve();
@@ -597,6 +613,7 @@ export function VoxGenerator() {
                 img.src = URL.createObjectURL(signIconFile);
             });
             await imgPromise;
+            URL.revokeObjectURL(img.src);
 
             const iconTargetWidth = Math.floor(contentWidth * (signIconScale / 100));
             const iconData = await imageToPixels(img, iconTargetWidth);
@@ -616,6 +633,7 @@ export function VoxGenerator() {
             frameWidth: signFrameWidth,
             icon: { pixels: iconPixels, width: iconWidth, height: iconHeight, offsetY: signIconOffsetY },
             text: { pixels: textPixels, width: textWidth, height: textHeight, offsetY: textOffsetY },
+            frame: signFrame,
         };
 
         const result: SignToVoxOutput = await generateSignToVoxFlow(input);
@@ -691,13 +709,9 @@ export function VoxGenerator() {
   const handleFontFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (fontFileUrlRef.current) {
-        URL.revokeObjectURL(fontFileUrlRef.current);
-      }
       setFontFile(file);
-      const url = URL.createObjectURL(file);
-      fontFileUrlRef.current = url;
-      setFont('custom'); 
+      setFont('custom');
+      setIsPending(true);
     }
   };
 
@@ -705,10 +719,6 @@ export function VoxGenerator() {
     setFont(value);
     if (value !== 'custom') {
       setFontFile(null);
-      if (fontFileUrlRef.current) {
-        URL.revokeObjectURL(fontFileUrlRef.current);
-        fontFileUrlRef.current = null;
-      }
     }
   }
 
@@ -1080,6 +1090,19 @@ export function VoxGenerator() {
                   </div>
                 </div>
               );
+            case 'haystack':
+              return (
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="haystackRadius">{t('voxGenerator.dims.baseRadius')} (voxels)</Label>
+                    <Input id="haystackRadius" type="number" value={dimensions.haystackRadius} onChange={e => handleDimensionChange('haystackRadius', e.target.value)} placeholder="e.g. 8" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="haystackHeight">{t('voxGenerator.dims.height')} (voxels)</Label>
+                    <Input id="haystackHeight" type="number" value={dimensions.haystackHeight} onChange={e => handleDimensionChange('haystackHeight', e.target.value)} placeholder="e.g. 12" />
+                  </div>
+                </div>
+              );
             default:
               return null;
           }
@@ -1425,54 +1448,67 @@ export function VoxGenerator() {
   }
   
   const renderSignInputs = () => {
-    const contentHeight = signHeight - (signFrameWidth * 2);
+    const contentHeight = signHeight - (signFrame ? signFrameWidth * 2 : 0);
     const maxIconOffset = Math.floor(contentHeight / 2);
     const maxTextOffset = Math.floor(contentHeight / 2);
 
     return (
         <div className="space-y-6">
-             <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                    <Label htmlFor="sign-icon-upload">{t('voxGenerator.sign.iconLabel')}</Label>
-                    <Button asChild variant="link" size="sm" className="text-muted-foreground -mr-3">
-                        <a href="https://ru.freepik.com/icons" target="_blank" rel="noopener noreferrer">
-                            {t('voxGenerator.sign.findIcons')} <ExternalLink className="ml-2 h-4 w-4" />
-                        </a>
-                    </Button>
-                </div>
-                <div className="flex gap-2">
-                    <Button asChild variant="outline" className="flex-1">
-                        <label className="cursor-pointer flex items-center justify-center">
-                            <Upload className="mr-2 h-4 w-4" />
-                            {signIconFile ? signIconFile.name : t('voxGenerator.sign.uploadButton')}
-                            <input ref={signIconInputRef} id="sign-icon-upload" type="file" className="sr-only" onChange={handleSignIconFileChange} accept="image/png, image/jpeg, image/gif, image/svg+xml" />
-                        </label>
-                    </Button>
-                    {signIconUrl && <img src={signIconUrl} alt="Icon Preview" className="h-10 w-10 p-1 border rounded-md" />}
-                </div>
-            </div>
-            
-            <div className="space-y-2 pt-4 border-t border-primary/20">
+            <div className="space-y-2">
                 <Label htmlFor="sign-text-input">{t('textConstructor.textLabel')}</Label>
                 <Input id="sign-text-input" value={signText} onChange={(e) => setSignText(e.target.value)} placeholder={t('textConstructor.textPlaceholder')} />
                 <p className="text-xs text-muted-foreground bg-black/20 p-2 rounded-md border border-input">{t('voxGenerator.sign.textHint')}</p>
             </div>
-
             
-            <div className="space-y-4 pt-4 border-t border-primary/20">
-              <Label>{t('voxGenerator.sign.layout')}</Label>
-              <div className="space-y-2">
-                  <Label htmlFor="sign-icon-scale">{t('voxGenerator.sign.iconScale')}: {signIconScale}%</Label>
-                  <Slider id="sign-icon-scale" min={10} max={100} step={1} value={[signIconScale]} onValueChange={(v) => setSignIconScale(v[0])} />
-              </div>
-              <div className="space-y-2">
-                  <Label htmlFor="sign-icon-offset-y">{t('voxGenerator.sign.iconOffsetY')}: {signIconOffsetY}px</Label>
-                  <Slider id="sign-icon-offset-y" min={-maxIconOffset} max={0} step={1} value={[signIconOffsetY]} onValueChange={(v) => setSignIconOffsetY(v[0])} />
-              </div>
-              <div className="space-y-2">
-                  <Label htmlFor="text-offset-y">{t('voxGenerator.sign.textOffsetY')}: {textOffsetY}px</Label>
-                  <Slider id="text-offset-y" min={0} max={maxTextOffset} step={1} value={[textOffsetY]} onValueChange={(v) => setTextOffsetY(v[0])} />
-              </div>
+            <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                    <Switch id="sign-frame" checked={signFrame} onCheckedChange={setSignFrame} />
+                    <Label htmlFor="sign-frame">{t('voxGenerator.sign.withFrame')}</Label>
+                </div>
+                <div className="flex items-center space-x-2 pt-2">
+                    <Switch id="sign-with-icon" checked={signWithIcon} onCheckedChange={setSignWithIcon} />
+                    <Label htmlFor="sign-with-icon">{t('voxGenerator.sign.iconLabel')}</Label>
+                </div>
+            </div>
+            
+            {signWithIcon && (
+                <div className="space-y-4 pt-4 border-t border-primary/20">
+                    <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                            <Label htmlFor="sign-icon-upload">{t('voxGenerator.sign.iconLabel')}</Label>
+                            <Button asChild variant="link" size="sm" className="text-muted-foreground -mr-3">
+                                <a href="https://ru.freepik.com/icons" target="_blank" rel="noopener noreferrer">
+                                    {t('voxGenerator.sign.findIcons')} <ExternalLink className="ml-2 h-4 w-4" />
+                                </a>
+                            </Button>
+                        </div>
+                        <div className="flex gap-2">
+                            <Button asChild variant="outline" className="flex-1">
+                                <label className="cursor-pointer flex items-center justify-center">
+                                    <Upload className="mr-2 h-4 w-4" />
+                                    {signIconFile ? signIconFile.name : t('voxGenerator.sign.uploadButton')}
+                                    <input ref={signIconInputRef} id="sign-icon-upload" type="file" className="sr-only" onChange={handleSignIconFileChange} accept="image/png, image/jpeg, image/gif, image/svg+xml" />
+                                </label>
+                            </Button>
+                            {signIconUrl && <img src={signIconUrl} alt="Icon Preview" className="h-10 w-10 p-1 border rounded-md" />}
+                        </div>
+                    </div>
+                
+                    <Label className="pt-2">{t('voxGenerator.sign.layout')}</Label>
+                    <div className="space-y-2">
+                        <Label htmlFor="sign-icon-scale">{t('voxGenerator.sign.iconScale')}: {signIconScale}%</Label>
+                        <Slider id="sign-icon-scale" min={10} max={100} step={1} value={[signIconScale]} onValueChange={(v) => setSignIconScale(v[0])} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="sign-icon-offset-y">{t('voxGenerator.sign.iconOffsetY')}: {signIconOffsetY}px</Label>
+                        <Slider id="sign-icon-offset-y" min={-maxIconOffset} max={0} step={1} value={[signIconOffsetY]} onValueChange={(v) => setSignIconOffsetY(v[0])} />
+                    </div>
+                </div>
+            )}
+            
+            <div className="space-y-2 pt-4 border-t border-primary/20">
+              <Label htmlFor="text-offset-y">{t('voxGenerator.sign.textOffsetY')}: {textOffsetY}px</Label>
+              <Slider id="text-offset-y" min={0} max={maxTextOffset} step={1} value={[textOffsetY]} onValueChange={(v) => setTextOffsetY(v[0])} />
             </div>
         </div>
     );
@@ -1563,6 +1599,10 @@ export function VoxGenerator() {
                             <RadioGroupItem value="ring" id="r-ring" />
                             <Label htmlFor="r-ring">{t('voxGenerator.shapes.ring')}</Label>
                         </div>
+                        <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="haystack" id="r-haystack" />
+                            <Label htmlFor="r-haystack">{t('voxGenerator.shapes.haystack')}</Label>
+                        </div>
                         </RadioGroup>
                     </div>
                     {renderShapeInputs()}
@@ -1611,5 +1651,9 @@ export function VoxGenerator() {
   
 
     
+
+    
+
+
 
     

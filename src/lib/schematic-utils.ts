@@ -14,6 +14,7 @@
 
 
 
+
 import type { ConversionMode } from './schematic-utils';
 const writeVox = require('vox-saver');
 
@@ -81,7 +82,8 @@ export type VoxShape =
     | { type: 'disk', radius: number, height: number, part?: 'full' | 'half', orientation: DiskOrientation }
     | { type: 'ring', radius: number, thickness: number, height: number, part?: 'full' | 'half', orientation: DiskOrientation }
     | { type: 'qrcode', pixels: boolean[], size: number, depth: number, withBackdrop?: boolean, backdropDepth?: number, stickerMode?: boolean }
-    | { type: 'checkerboard', width: number, length: number, height: number };
+    | { type: 'checkerboard', width: number, length: number, height: number }
+    | { type: 'haystack', radius: number, height: number };
 
 
 // A simple helper to generate schematic data string
@@ -1286,6 +1288,35 @@ export function voxToSchematic(shape: VoxShape): SchematicOutput {
             }
             break;
         }
+
+        case 'haystack': {
+            width = depth = shape.radius * 2;
+            height = shape.height;
+            const baseRadius = shape.radius;
+            const center = baseRadius - 0.5;
+
+            for (let y = 0; y < height; y++) {
+                const progress = y / (height - 1);
+                // Non-linear radius reduction for a more rounded shape
+                const currentRadius = baseRadius * (1 - Math.pow(progress, 2.5));
+                const currentRadiusSq = currentRadius * currentRadius;
+                
+                // Add some randomness to the center of each slice
+                const offsetX = (Math.random() - 0.5) * (baseRadius / 8) * (1 - progress);
+                const offsetZ = (Math.random() - 0.5) * (baseRadius / 8) * (1 - progress);
+                
+                for (let z = 0; z < baseRadius * 2; z++) {
+                    for (let x = 0; x < baseRadius * 2; x++) {
+                        const dx = x - center + offsetX;
+                        const dz = z - center + offsetZ;
+                        if (dx * dx + dz * dz <= currentRadiusSq) {
+                            addVoxel(x, y, z);
+                        }
+                    }
+                }
+            }
+            break;
+        }
     }
     
     totalVoxels = xyziValues.length > 1 ? xyziValues.length -1 : 0;
@@ -1329,6 +1360,7 @@ function grayscale(r: number, g: number, b: number): number {
 
 
     
+
 
 
 

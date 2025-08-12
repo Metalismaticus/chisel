@@ -132,6 +132,7 @@ export default {
       arch: 'Арка',
       disk: 'Диск',
       ring: 'Кольцо',
+      haystack: 'Стог сена',
     },
     dims: {
       width: 'Ширина',
@@ -238,7 +239,8 @@ export default {
         width: 'Ширина таблички',
         height: 'Высота таблички',
         frameWidth: 'Толщина рамки',
-        iconLabel: 'Иконка',
+        withFrame: 'С рамкой',
+        iconLabel: 'Иконка (необязательно)',
         findIcons: 'Найти иконки',
         uploadButton: 'Выбрать иконку',
         textHint: 'Только английские символы. Не более 8 символов на строку.',
@@ -268,8 +270,8 @@ export default {
       noQrUrlDesc: 'Пожалуйста, введите URL или текст для генерации QR-кода.',
       crashWarningTitle: 'Возможен сбой игры',
       crashWarningDesc: 'Размеры, кратные 8, могут вызывать проблемы с модом "Automatic Chiselling", приводящие к сбою. Используйте на свой страх и риск.',
-      noIcon: 'Иконка не выбрана',
-      noIconDesc: 'Пожалуйста, загрузите иконку для таблички.',
+      noIcon: 'Нет ни текста, ни иконки',
+      noIconDesc: 'Пожалуйста, введите текст или загрузите иконку для таблички.',
     },
   },
   schematicPreview: {
@@ -350,6 +352,3 @@ export default {
 } as const;
 
     
-
-
-

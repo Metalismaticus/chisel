@@ -23,8 +23,9 @@ const SignToVoxInputSchema = z.object({
     width: z.number().int().min(16),
     height: z.number().int().min(16),
     frameWidth: z.number().int().min(1),
-    icon: PixelDataSchema,
+    icon: PixelDataSchema.optional(),
     text: PixelDataSchema,
+    frame: z.boolean(),
 });
 
 export type SignToVoxInput = z.infer<typeof SignToVoxInputSchema>;
@@ -53,51 +54,54 @@ export async function generateSignToVoxFlow(input: SignToVoxInput): Promise<Sign
     height: signHeight,
     frameWidth,
     icon,
-    text
+    text,
+    frame
   } = SignToVoxInputSchema.parse(input);
 
   let xyziValues: {x: number, y: number, z: number, i: number}[] = [];
+  const Z_OFFSET = 15;
+  const Y_OFFSET = 4;
   
   const addVoxel = (px: number, py: number, pz: number, colorIndex = 1) => {
-    xyziValues.push({ x: Math.round(px), y: Math.round(py), z: Math.round(pz), i: colorIndex });
+    xyziValues.push({ x: Math.round(px), y: Math.round(py + Y_OFFSET), z: Math.round(pz), i: colorIndex });
   };
-  addVoxel(0,0,0,2); // Anchor point at 0,0,0
-
-  const Z_OFFSET = 15;
+  addVoxel(0,-Y_OFFSET,0,2); // Anchor point at 0,0,0
 
   // 1. Generate Frame
-  const cornerRadius = frameWidth * 2;
-  for(let y = 0; y < signHeight; y++) {
-    for (let x = 0; x < signWidth; x++) {
-        let isFrame = false;
-        // Top/Bottom border
-        if (y < frameWidth || y >= signHeight - frameWidth) isFrame = true;
-        // Left/Right border
-        if (x < frameWidth || x >= signWidth - frameWidth) isFrame = true;
+  if (frame) {
+    const cornerRadius = frameWidth * 2;
+    for(let y = 0; y < signHeight; y++) {
+      for (let x = 0; x < signWidth; x++) {
+          let isFrame = false;
+          // Top/Bottom border
+          if (y < frameWidth || y >= signHeight - frameWidth) isFrame = true;
+          // Left/Right border
+          if (x < frameWidth || x >= signWidth - frameWidth) isFrame = true;
 
-        // Carve out rounded corners
-        const checkCorner = (cx: number, cy: number, radius: number) => {
-            const dx = Math.abs(x - cx);
-            const dy = Math.abs(y - cy);
-            if (dx > radius || dy > radius) return false;
-            return (dx - radius) * (dx - radius) + (dy - radius) * (dy - radius) > radius * radius;
-        }
-        
-        // Top-left
-        if (checkCorner(cornerRadius, cornerRadius, cornerRadius)) isFrame = false;
-        // Top-right
-        if (checkCorner(signWidth - 1 - cornerRadius, cornerRadius, cornerRadius)) isFrame = false;
-        // Bottom-left
-        if (checkCorner(cornerRadius, signHeight - 1 - cornerRadius, cornerRadius)) isFrame = false;
-        // Bottom-right
-        if (checkCorner(signWidth - 1 - cornerRadius, signHeight - 1 - cornerRadius, cornerRadius)) isFrame = false;
+          // Carve out rounded corners
+          const checkCorner = (cx: number, cy: number, radius: number) => {
+              const dx = Math.abs(x - cx);
+              const dy = Math.abs(y - cy);
+              if (dx > radius || dy > radius) return false;
+              return (dx - radius) * (dx - radius) + (dy - radius) * (dy - radius) > radius * radius;
+          }
+          
+          // Top-left
+          if (checkCorner(cornerRadius, cornerRadius, cornerRadius)) isFrame = false;
+          // Top-right
+          if (checkCorner(signWidth - 1 - cornerRadius, cornerRadius, cornerRadius)) isFrame = false;
+          // Bottom-left
+          if (checkCorner(cornerRadius, signHeight - 1 - cornerRadius, cornerRadius)) isFrame = false;
+          // Bottom-right
+          if (checkCorner(signWidth - 1 - cornerRadius, signHeight - 1 - cornerRadius, cornerRadius)) isFrame = false;
 
 
-        if(isFrame) addVoxel(x, signHeight - 1 - y, Z_OFFSET);
+          if(isFrame) addVoxel(x, signHeight - 1 - y, Z_OFFSET);
+      }
     }
   }
   
-  const contentHeight = signHeight - frameWidth * 2;
+  const contentHeight = signHeight - (frame ? frameWidth * 2 : 0);
   const contentCenterY = Math.floor(signHeight / 2);
   const hasIcon = icon && icon.pixels.length > 0;
   
@@ -143,7 +147,7 @@ export async function generateSignToVoxFlow(input: SignToVoxInput): Promise<Sign
 
 
   const modelWidth = signWidth;
-  const modelHeight = signHeight;
+  const modelHeight = signHeight + Y_OFFSET;
   const modelDepth = 16;
  
   const palette: PaletteColor[] = Array.from({length: 256}, () => ({r:0,g:0,b:0,a:0}));
@@ -176,5 +180,7 @@ export async function generateSignToVoxFlow(input: SignToVoxInput): Promise<Sign
       totalVoxels: xyziValues.length - 1,
   };
 }
+    
+
 
     
