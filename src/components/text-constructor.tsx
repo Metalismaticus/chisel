@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useEffect, useRef } from 'react';
@@ -28,14 +29,15 @@ export function TextConstructor() {
   const [fontSize, setFontSize] = useState([24]);
   const [font, setFont] = useState<FontStyle>('monospace');
   const [fontFile, setFontFile] = useState<File | null>(null);
+  const fontFileUrlRef = useRef<string | null>(null);
   const [outline, setOutline] = useState(false);
   const [outlineGap, setOutlineGap] = useState([1]);
-  const fontFileUrlRef = useRef<string | null>(null);
   const [schematicOutput, setSchematicOutput] = useState<SchematicOutput | null>(null);
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   
   useEffect(() => {
+    // Cleanup the object URL on component unmount
     return () => {
       if (fontFileUrlRef.current) {
         URL.revokeObjectURL(fontFileUrlRef.current);
@@ -49,9 +51,9 @@ export function TextConstructor() {
       if (fontFileUrlRef.current) {
         URL.revokeObjectURL(fontFileUrlRef.current);
       }
+      const newUrl = URL.createObjectURL(file);
+      fontFileUrlRef.current = newUrl;
       setFontFile(file);
-      const url = URL.createObjectURL(file);
-      fontFileUrlRef.current = url;
       setFont('custom'); 
     }
   };

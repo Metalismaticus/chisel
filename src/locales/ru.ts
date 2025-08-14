@@ -133,6 +133,7 @@ export default {
       disk: 'Диск',
       ring: 'Кольцо',
       haystack: 'Стог сена',
+      corner: 'Скругленный угол',
     },
     dims: {
       width: 'Ширина',
@@ -155,6 +156,9 @@ export default {
         bottom: 'Нижняя часть',
         vertical: 'Вертикальный срез',
       },
+      carveMode: 'Высекание из блоков',
+      domeMode: 'Купол (полый)',
+      wallThickness: 'Толщина стенок',
     },
     disk: {
       type: 'Тип',
@@ -185,12 +189,10 @@ export default {
             center: 'По центру блока',
             corner: 'На стыке 4 блоков',
         },
-        baseStyle: 'Стиль основания',
-        capitalStyle: 'Стиль капители',
+        baseStyle: 'Стиль осн./капители',
         styles: {
             simple: 'Простой',
             decorative: 'Декоративный',
-            ionic: 'Ионический'
         }
     },
     arch: {
@@ -207,6 +209,10 @@ export default {
             top: 'Верхняя',
             bottom: 'Нижняя',
         },
+    },
+    corner: {
+      external: 'Внешний угол',
+      internal: 'Внутренний угол',
     },
     text: {
         modeLabel: 'Режим',
@@ -243,7 +249,7 @@ export default {
         iconLabel: 'Иконка (необязательно)',
         findIcons: 'Найти иконки',
         uploadButton: 'Выбрать иконку',
-        textHint: 'Только английские символы. Не более 8 символов на строку.',
+        textHint: 'Не более 8 символов на строку.',
         layout: 'Макет',
         iconScale: 'Масштаб иконки',
         iconOffsetY: 'Смещение иконки по вертикали',
@@ -272,6 +278,8 @@ export default {
       crashWarningDesc: 'Размеры, кратные 8, могут вызывать проблемы с модом "Automatic Chiselling", приводящие к сбою. Используйте на свой страх и риск.',
       noIcon: 'Нет ни текста, ни иконки',
       noIconDesc: 'Пожалуйста, введите текст или загрузите иконку для таблички.',
+      noCornerType: 'Не выбран тип угла',
+      noCornerTypeDesc: 'Пожалуйста, выберите хотя бы один тип угла (внешний или внутренний).',
     },
   },
   schematicPreview: {
@@ -352,3 +360,5 @@ export default {
 } as const;
 
     
+
+

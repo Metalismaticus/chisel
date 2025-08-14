@@ -133,6 +133,7 @@ export default {
       disk: 'Disk',
       ring: 'Ring',
       haystack: 'Haystack',
+      corner: 'Rounded Corner',
     },
     dims: {
       width: 'Width',
@@ -155,6 +156,9 @@ export default {
         bottom: 'Bottom half',
         vertical: 'Vertical cut',
       },
+      carveMode: 'Carve from blocks',
+      domeMode: 'Dome Mode',
+      wallThickness: 'Wall Thickness',
     },
     disk: {
       type: 'Type',
@@ -185,12 +189,10 @@ export default {
             center: 'Center of a block',
             corner: 'On the corner of 4 blocks',
         },
-        baseStyle: 'Base Style',
-        capitalStyle: 'Capital Style',
+        baseStyle: 'Base/Capital Style',
         styles: {
             simple: 'Simple',
             decorative: 'Decorative',
-            ionic: 'Ionic'
         }
     },
     arch: {
@@ -207,6 +209,10 @@ export default {
             top: 'Top',
             bottom: 'Bottom',
         },
+    },
+    corner: {
+      external: 'External (Convex)',
+      internal: 'Internal (Concave)',
     },
     text: {
         modeLabel: 'Mode',
@@ -272,6 +278,8 @@ export default {
       crashWarningDesc: 'Sizes that are multiples of 8 can cause issues with the "Automatic Chiselling" mod, leading to a crash. Use at your own risk.',
       noIcon: 'No text or icon provided',
       noIconDesc: 'Please provide text or an icon for the sign.',
+      noCornerType: 'No corner type selected',
+      noCornerTypeDesc: 'Please select at least one corner type (external or internal).',
     },
   },
   schematicPreview: {
@@ -350,5 +358,7 @@ export default {
     },
   },
 } as const;
+
+    
 
     

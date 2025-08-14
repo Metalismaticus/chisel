@@ -11,6 +11,7 @@
 import { z } from 'zod';
 const writeVox = require('vox-saver');
 import type { PaletteColor } from '@/lib/schematic-utils';
+import { rasterizePixelText } from '@/lib/schematic-utils';
 
 const PixelDataSchema = z.object({
     pixels: z.array(z.boolean()),
@@ -24,8 +25,12 @@ const SignToVoxInputSchema = z.object({
     height: z.number().int().min(16),
     frameWidth: z.number().int().min(1),
     icon: PixelDataSchema.optional(),
-    text: PixelDataSchema,
+    text: z.string(), // Changed from PixelDataSchema to string
     frame: z.boolean(),
+    signIconScale: z.number(),
+    signIconOffsetY: z.number(),
+    textOffsetY: z.number(),
+    signWithIcon: z.boolean(),
 });
 
 export type SignToVoxInput = z.infer<typeof SignToVoxInputSchema>;
@@ -55,7 +60,10 @@ export async function generateSignToVoxFlow(input: SignToVoxInput): Promise<Sign
     frameWidth,
     icon,
     text,
-    frame
+    frame,
+    signIconOffsetY,
+    textOffsetY,
+    signWithIcon
   } = SignToVoxInputSchema.parse(input);
 
   let xyziValues: {x: number, y: number, z: number, i: number}[] = [];
@@ -101,47 +109,56 @@ export async function generateSignToVoxFlow(input: SignToVoxInput): Promise<Sign
     }
   }
   
-  const contentHeight = signHeight - (frame ? frameWidth * 2 : 0);
+  // Calculate content area as if the frame always exists to ensure consistent centering.
+  const contentWidth = signWidth - (frameWidth * 2);
+  const contentXStart = frameWidth;
+  const contentHeight = signHeight - (frameWidth * 2);
   const contentCenterY = Math.floor(signHeight / 2);
-  const hasIcon = icon && icon.pixels.length > 0;
+  const hasIcon = icon && icon.pixels.length > 0 && signWithIcon;
   
   // 2. Place Icon
   if (hasIcon) {
-      const iconXOffset = Math.floor((signWidth - icon.width) / 2);
+      const iconXOffset = contentXStart + Math.floor((contentWidth - icon.width) / 2);
       const iconBaseY = contentCenterY + Math.floor(contentHeight * 0.25) - Math.floor(icon.height / 2);
-      const iconYOffset = iconBaseY + (icon.offsetY || 0);
+      const finalIconYOffset = iconBaseY + (signIconOffsetY || 0);
 
       for (let y = 0; y < icon.height; y++) {
           for (let x = 0; x < icon.width; x++) {
               if (icon.pixels[y * icon.width + x]) {
-                  addVoxel(x + iconXOffset, signHeight - 1 - (y + iconYOffset), Z_OFFSET);
+                  addVoxel(x + iconXOffset, signHeight - 1 - (y + finalIconYOffset), Z_OFFSET);
               }
           }
       }
   }
 
-
   // 3. Place Text
-  if (text && text.pixels.length > 0) {
-      const textXOffset = Math.floor((signWidth - text.width) / 2);
+  if (text && text.trim().length > 0) {
+      const { lines, totalHeight: textBlockHeight } = await rasterizePixelText({
+          text: text.toUpperCase(),
+      });
+      
       let textBaseY;
-
-      if(hasIcon) {
-        textBaseY = contentCenterY - Math.floor(contentHeight * 0.25) - Math.floor(text.height / 2);
+       if(hasIcon) {
+        textBaseY = contentCenterY - Math.floor(contentHeight * 0.25) - Math.floor(textBlockHeight / 2);
       } else {
         // If no icon, center text vertically
-        textBaseY = Math.floor((signHeight - text.height) / 2);
+        textBaseY = Math.floor((signHeight - textBlockHeight) / 2);
       }
 
-      const textYOffset = textBaseY + (text.offsetY || 0);
+      const finaltextYOffset = textBaseY + (textOffsetY || 0);
 
+      let currentY = finaltextYOffset;
 
-      for (let y = 0; y < text.height; y++) {
-          for (let x = 0; x < text.width; x++) {
-              if (text.pixels[y * text.width + x]) {
-                  addVoxel(x + textXOffset, signHeight - 1 - (y + textYOffset), Z_OFFSET);
-              }
-          }
+      for (const line of lines) {
+        const textXOffset = contentXStart + Math.floor((contentWidth - line.width) / 2);
+        for(let y = 0; y < line.height; y++) {
+            for (let x = 0; x < line.width; x++) {
+                if (line.pixels[y * line.width + x]) {
+                    addVoxel(x + textXOffset, signHeight - 1 - (currentY + y), Z_OFFSET);
+                }
+            }
+        }
+        currentY += line.height + 1; // +1 for line spacing
       }
   }
 
@@ -151,7 +168,7 @@ export async function generateSignToVoxFlow(input: SignToVoxInput): Promise<Sign
   const modelDepth = 16;
  
   const palette: PaletteColor[] = Array.from({length: 256}, () => ({r:0,g:0,b:0,a:0}));
-  palette[0] = { r: 0, g: 0, b: 0, a: 0 };
+  palette[0] = { r: 0, g: 0, b: 0, a: 0 }; // Main color
   palette[1] = { r: 10, g: 10, b: 10, a: 255 }; // Main color
   palette[2] = { r: 200, g: 164, b: 100, a: 255 }; // Anchor color
 
@@ -180,7 +197,4 @@ export async function generateSignToVoxFlow(input: SignToVoxInput): Promise<Sign
       totalVoxels: xyziValues.length - 1,
   };
 }
-    
-
-
     
