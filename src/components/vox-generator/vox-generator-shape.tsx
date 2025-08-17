@@ -19,6 +19,9 @@ import { Switch } from '../ui/switch';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from '@/lib/utils';
 
+type RingOrientation = 'horizontal' | 'vertical-up' | 'vertical-down';
+
+
 export function VoxGeneratorShape() {
   const t = useI18n();
   const [shape, setShape] = useState<VoxShape['type']>('column');
@@ -60,7 +63,7 @@ export function VoxGeneratorShape() {
   const [diskPart, setDiskPart] = useState<'full' | 'half'>('full');
   const [diskOrientation, setDiskOrientation] = useState<'horizontal' | 'vertical'>('horizontal');
   const [ringPart, setRingPart] = useState<'full' | 'half'>('full');
-  const [ringOrientation, setRingOrientation] = useState<'horizontal' | 'vertical'>('horizontal');
+  const [ringOrientation, setRingOrientation] = useState<RingOrientation>('horizontal');
   const [archType, setArchType] = useState<'rectangular' | 'rounded' | 'circular'>('rectangular');
   const [circularArchOrientation, setCircularArchOrientation] = useState<'top' | 'bottom'>('top');
   const [withBase, setWithBase] = useState(false);
@@ -649,15 +652,16 @@ export function VoxGeneratorShape() {
                           </div>
                       </RadioGroup>
                     </div>
-                    <div className="space-y-2">
+                     <div className="space-y-2">
                         <Label htmlFor="ring-direction">{t('voxGenerator.disk.orientation')}</Label>
-                        <Select value={ringOrientation} onValueChange={(v) => setRingOrientation(v as any)}>
+                        <Select value={ringOrientation} onValueChange={(v) => setRingOrientation(v as any)} disabled={ringPart === 'full'}>
                             <SelectTrigger id="ring-direction">
                                 <SelectValue placeholder={t('voxGenerator.disk.selectDirection')} />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="horizontal">{t('voxGenerator.disk.orientations.horizontal')}</SelectItem>
-                                <SelectItem value="vertical">{t('voxGenerator.disk.orientations.vertical')}</SelectItem>
+                                <SelectItem value="vertical-up">{t('voxGenerator.disk.orientations.vertical_up')}</SelectItem>
+                                <SelectItem value="vertical-down">{t('voxGenerator.disk.orientations.vertical_down')}</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>

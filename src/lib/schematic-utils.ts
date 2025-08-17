@@ -26,12 +26,13 @@ export interface SchematicOutput {
   totalVoxels?: number;
 }
 
-export type FontStyle = 'monospace' | 'serif' | 'sans-serif' | 'custom';
+export type FontStyle = 'monospace' | 'serif' | 'sans-serif' | 'custom' | 'metalfont';
 export type Shape = 'circle' | 'triangle' | 'rhombus' | 'hexagon';
 export type TextOrientation = 'horizontal' | 'vertical-lr';
 
 type HemispherePart = `hemisphere-${'top' | 'bottom' | 'vertical'}`;
 type DiskOrientation = 'horizontal' | 'vertical';
+type RingOrientation = 'horizontal' | 'vertical-up' | 'vertical-down';
 type ArchType = 'rectangular' | 'rounded' | 'circular';
 type CircularArchOrientation = 'top' | 'bottom';
 type ColumnStyle = 'simple' | 'decorative';
@@ -63,7 +64,7 @@ export type VoxShape =
       }
     | ({ type: 'arch' } & (ArchRectangular | ArchRounded | ArchCircular))
     | { type: 'disk', radius: number, height: number, part?: 'full' | 'half', orientation: DiskOrientation }
-    | { type: 'ring', radius: number, thickness: number, height: number, part?: 'full' | 'half', orientation: DiskOrientation }
+    | { type: 'ring', radius: number, thickness: number, height: number, part?: 'full' | 'half', orientation: RingOrientation }
     | { type: 'qrcode', pixels: boolean[], size: number, depth: number, withBackdrop?: boolean, backdropDepth?: number, stickerMode?: boolean }
     | { type: 'checkerboard', width: number, length: number, height: number }
     | { type: 'haystack', radius: number, height: number }
@@ -109,6 +110,36 @@ export async function rasterizeText({
     if (typeof document === 'undefined' || !text || !text.trim()) {
         return { width: 0, height: 0, pixels: [] };
     }
+    
+    if (font === 'metalfont') {
+        // Use the pixel text rasterizer for metalfont
+        const { lines, totalHeight } = await rasterizePixelText({ text, maxWidth });
+        
+        if (!lines.length) {
+            return { width: 0, height: 0, pixels: [] };
+        }
+
+        // Combine lines into a single pixel grid
+        const totalWidth = Math.max(...lines.map(l => l.width));
+        const combinedPixels = Array(totalWidth * totalHeight).fill(false);
+        let currentY = 0;
+        const lineSpacing = 1;
+
+        for (const line of lines) {
+            const xOffset = Math.floor((totalWidth - line.width) / 2);
+            for (let y = 0; y < line.height; y++) {
+                for (let x = 0; x < line.width; x++) {
+                    if (line.pixels[y * line.width + x]) {
+                        combinedPixels[(currentY + y) * totalWidth + (xOffset + x)] = true;
+                    }
+                }
+            }
+            currentY += line.height + lineSpacing;
+        }
+
+        return { pixels: combinedPixels, width: totalWidth, height: totalHeight };
+    }
+
 
     const fontName = 'custom-font-' + Date.now();
     let loadedFontFamily = font;
@@ -847,12 +878,56 @@ export function voxToSchematic(shape: VoxShape): SchematicOutput {
                 }
                 xyziValues.push(...allVoxels.filter(v => !voxelsToRemove.has(`${v.x},${v.y},${v.z}`)));
 
+            } else if (hollow && part.startsWith('hemisphere')) {
+                width = depth = sphereDiameter;
+                height = radius; // The height of the dome is just the radius
+                const innerRadius = radius - thickness;
+                const innerRadiusSq = innerRadius * innerRadius;
+                const outerRadiusSq = radius * radius;
+
+                for (let y = 0; y < height; y++) {
+                    for (let z = 0; z < depth; z++) {
+                        for (let x = 0; x < width; x++) {
+                            const dx = x - center;
+                            const dz = z - center;
+                            
+                            let dy;
+                            if (part === 'hemisphere-top') {
+                                dy = y;
+                            } else if (part === 'hemisphere-bottom') {
+                                dy = (height - 1 - y);
+                            } else { // vertical, not a dome, handled below
+                                dy = y - center;
+                            }
+                             
+                            const distSq = dx * dx + dy * dy + dz * dz;
+
+                            if (distSq <= outerRadiusSq && distSq > innerRadiusSq) {
+                                addVoxel(x, y, z);
+                            }
+                        }
+                    }
+                }
+                if (part === 'hemisphere-vertical') { // Non-dome hollow hemisphere
+                     width = radius; height = sphereDiameter; depth = sphereDiameter;
+                     xyziValues = []; // Clear and recalculate
+                     addVoxel(0,0,0,2);
+                     for (let y = 0; y < height; y++) {
+                        for (let z = 0; z < depth; z++) {
+                            for (let x = 0; x < width; x++) {
+                                const dx = x;
+                                const dy = y - center;
+                                const dz = z - center;
+                                const distSq = dx * dx + dy * dy + dz * dz;
+                                if (distSq <= outerRadiusSq && distSq > innerRadiusSq) {
+                                    addVoxel(x, y, z);
+                                }
+                            }
+                        }
+                     }
+                }
             } else {
                  width = height = depth = sphereDiameter;
-                 const innerRadius = hollow ? radius - thickness : -1;
-                 const innerRadiusSq = innerRadius * innerRadius;
-                 const outerRadiusSq = radius * radius;
-                 
                  for (let y = 0; y < height; y++) {
                     for (let z = 0; z < depth; z++) {
                         for (let x = 0; x < width; x++) {
@@ -861,7 +936,7 @@ export function voxToSchematic(shape: VoxShape): SchematicOutput {
                             const dz = z - center;
                             const distSq = dx * dx + dy * dy + dz * dz;
                             
-                            if (distSq <= outerRadiusSq && (!hollow || distSq > innerRadiusSq)) {
+                            if (distSq <= radius * radius) {
                                 if (part === 'full') {
                                     addVoxel(x, y, z);
                                 } else if (part === 'hemisphere-top' && y >= center) {
@@ -1121,7 +1196,7 @@ export function voxToSchematic(shape: VoxShape): SchematicOutput {
             const { radius: outerR, thickness, height: ringHeight, part: ringPart = 'full', orientation: ringOrientation = 'horizontal' } = shape;
             const innerR = outerR - thickness;
 
-            if (ringOrientation === 'vertical') {
+            if (ringOrientation.startsWith('vertical')) {
                 width = ringHeight;
                 height = outerR * 2;
                 depth = outerR * 2;
@@ -1140,7 +1215,7 @@ export function voxToSchematic(shape: VoxShape): SchematicOutput {
                   for (let x = 0; x < width; x++) {
                       let distSq: number;
                       
-                      if (ringOrientation === 'vertical') {
+                      if (ringOrientation.startsWith('vertical')) {
                           const dy = y - centerY;
                           const dz = z - centerZ;
                           distSq = dy * dy + dz * dz;
@@ -1156,7 +1231,9 @@ export function voxToSchematic(shape: VoxShape): SchematicOutput {
                           } else if (ringPart === 'half') {
                               if (ringOrientation === 'horizontal' && z < centerZ) {
                                   addVoxel(x, y, z);
-                              } else if (ringOrientation === 'vertical' && y < centerY) {
+                              } else if (ringOrientation === 'vertical-up' && y >= centerY) {
+                                  addVoxel(x, y, z);
+                              } else if (ringOrientation === 'vertical-down' && y < centerY) {
                                   addVoxel(x, y, z);
                               }
                           }
@@ -1343,3 +1420,6 @@ function grayscale(r: number, g: number, b: number): number {
 
 
     
+
+
+

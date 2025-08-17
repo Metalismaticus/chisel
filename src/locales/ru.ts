@@ -62,6 +62,7 @@ export default {
       monospace: 'Моноширинный',
       serif: 'С засечками',
       'sans-serif': 'Без засечек',
+      metalfont: 'Metalfont',
     },
     uploadLabel: 'Загрузить свой шрифт (.ttf, .otf, .woff)',
     uploadButton: 'Выбрать шрифт',
@@ -171,6 +172,8 @@ export default {
       orientations: {
         horizontal: 'Горизонтальный срез',
         vertical: 'Вертикальный срез',
+        vertical_up: 'Вертикальный срез (верх)',
+        vertical_down: 'Вертикальный срез (низ)',
       },
     },
     column: {
@@ -360,5 +363,7 @@ export default {
 } as const;
 
     
+
+
 
 

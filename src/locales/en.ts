@@ -62,6 +62,7 @@ export default {
       monospace: 'Monospace',
       serif: 'Serif',
       'sans-serif': 'Sans-Serif',
+      metalfont: 'Metalfont',
     },
     uploadLabel: 'Upload Custom Font (.ttf, .otf, .woff)',
     uploadButton: 'Choose Font',
@@ -171,6 +172,8 @@ export default {
       orientations: {
         horizontal: 'Horizontal cut',
         vertical: 'Vertical cut',
+        vertical_up: 'Vertical cut (top)',
+        vertical_down: 'Vertical cut (bottom)',
       },
     },
     column: {
@@ -362,3 +365,5 @@ export default {
     
 
     
+
+

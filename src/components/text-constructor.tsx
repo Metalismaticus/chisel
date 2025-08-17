@@ -145,6 +145,7 @@ export function TextConstructor() {
                     <SelectItem value="monospace">{t('textConstructor.fonts.monospace')}</SelectItem>
                     <SelectItem value="serif">{t('textConstructor.fonts.serif')}</SelectItem>
                     <SelectItem value="sans-serif">{t('textConstructor.fonts.sans-serif')}</SelectItem>
+                    <SelectItem value="metalfont">{t('textConstructor.fonts.metalfont')}</SelectItem>
                     {fontFile && <SelectItem value="custom" disabled>{fontFile.name}</SelectItem>}
                 </SelectContent>
                 </Select>
@@ -160,22 +161,26 @@ export function TextConstructor() {
                 </Button>
             </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="font-size">{t('textConstructor.sizeLabel')}: {fontSize[0]}px</Label>
-            <Slider
-              id="font-size"
-              min={8}
-              max={128}
-              step={1}
-              value={fontSize}
-              onValueChange={setFontSize}
-            />
-          </div>
-          <div className="flex items-center space-x-2">
-            <Switch id="outline-switch" checked={outline} onCheckedChange={setOutline} />
-            <Label htmlFor="outline-switch">{t('textConstructor.outlineLabel')}</Label>
-          </div>
-          {outline && (
+          {font !== 'metalfont' && (
+            <div className="space-y-2">
+              <Label htmlFor="font-size">{t('textConstructor.sizeLabel')}: {fontSize[0]}px</Label>
+              <Slider
+                id="font-size"
+                min={8}
+                max={128}
+                step={1}
+                value={fontSize}
+                onValueChange={setFontSize}
+              />
+            </div>
+          )}
+          {font !== 'metalfont' && (
+            <div className="flex items-center space-x-2">
+              <Switch id="outline-switch" checked={outline} onCheckedChange={setOutline} />
+              <Label htmlFor="outline-switch">{t('textConstructor.outlineLabel')}</Label>
+            </div>
+          )}
+          {outline && font !== 'metalfont' && (
              <div className="space-y-2">
                 <Label htmlFor="outline-gap">{t('textConstructor.outlineGapLabel')}: {outlineGap[0]}px</Label>
                 <Slider
@@ -197,3 +202,4 @@ export function TextConstructor() {
     </div>
   );
 }
+
