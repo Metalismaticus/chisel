@@ -245,6 +245,11 @@ export default {
         backdropDepth: 'Plate Depth',
     },
     sign: {
+        signType: 'Sign Type',
+        types: {
+            standard: 'Standard',
+            hanging: 'Hanging',
+        },
         width: 'Sign Width',
         height: 'Sign Height',
         frameWidth: 'Frame Width',
@@ -257,6 +262,11 @@ export default {
         iconScale: 'Icon Scale',
         iconOffsetY: 'Icon Vertical Offset',
         textOffsetY: 'Text Vertical Offset',
+        iconOffsetX: 'Icon Horizontal Offset',
+        textOffsetX: 'Text Horizontal Offset',
+        iconPosition: 'Icon Position',
+        iconTextSpacing: 'Spacing between icon and text',
+        thickness: 'Backplate Thickness',
     },
     button: 'Generate .vox File',
     help: {
@@ -361,9 +371,3 @@ export default {
     },
   },
 } as const;
-
-    
-
-    
-
-

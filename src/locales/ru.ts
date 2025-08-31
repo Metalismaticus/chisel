@@ -245,6 +245,11 @@ export default {
         backdropDepth: 'Глубина плиты',
     },
     sign: {
+        signType: 'Тип таблички',
+        types: {
+            standard: 'Стандартная',
+            hanging: 'Подвесная',
+        },
         width: 'Ширина таблички',
         height: 'Высота таблички',
         frameWidth: 'Толщина рамки',
@@ -257,6 +262,11 @@ export default {
         iconScale: 'Масштаб иконки',
         iconOffsetY: 'Смещение иконки по вертикали',
         textOffsetY: 'Смещение текста по вертикали',
+        iconOffsetX: 'Смещение иконки по горизонтали',
+        textOffsetX: 'Смещение текста по горизонтали',
+        iconPosition: 'Позиция иконки',
+        iconTextSpacing: 'Расстояние между иконкой и текстом',
+        thickness: 'Толщина задника',
     },
     button: 'Сгенерировать .vox файл',
     help: {
@@ -361,9 +371,3 @@ export default {
     },
   },
 } as const;
-
-    
-
-
-
-
